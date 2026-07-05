@@ -475,6 +475,7 @@
     const VIEW_CENTER = 2;
     const BATTLE_DURATION_MS = 120000; // 2 minutes
     const TICK_MS = 350;
+    const FOOD_LIFETIME_MS = 20000; // Food expires after 20 seconds
     const MAX_EVENT_LOG_ENTRIES = 80; // Keep enough context without letting the log grow indefinitely.
     const DEFAULT_RULE_NAME = "Unnamed rule";
     const CELL_TYPES = ["any", "empty", "self", "enemy", "food", "wall"];
@@ -511,6 +512,7 @@
         snakeB: []
       },
       food: null,
+      foodSpawnedAt: null,
       eventLog: [],
       timerId: null,
       runEndsAt: null,
@@ -1012,6 +1014,7 @@
         return;
       }
       state.food = freeCells[Math.floor(Math.random() * freeCells.length)];
+      state.foodSpawnedAt = Date.now();
     }
 
     function getWorldPositionFromView(head, direction, relX, relY) {
@@ -1117,6 +1120,22 @@
       pushLog(`${snake.label} ${reason}`);
     }
 
+    function handleFoodExpiry() {
+      if (!state.food || !state.foodSpawnedAt) {
+        return;
+      }
+      if (Date.now() - state.foodSpawnedAt >= FOOD_LIFETIME_MS) {
+        const old = state.food;
+        state.food = null;
+        state.foodSpawnedAt = null;
+        pushLog(`Food at (${old.x}, ${old.y}) expired after ${FOOD_LIFETIME_MS / 1000}s.`);
+        placeFood();
+        if (state.food) {
+          pushLog(`New food appeared at (${state.food.x}, ${state.food.y}).`);
+        }
+      }
+    }
+
     function stepBattle(fromTimer = false) {
       if (state.status === "finished") {
         return;
@@ -1135,6 +1154,8 @@
 
       const decisions = {};
       const targets = {};
+
+      handleFoodExpiry();
 
       for (const snakeKey of SNAKE_KEYS) {
         const snake = state.snakes[snakeKey];
@@ -1267,6 +1288,14 @@
 
       if (!state.food) {
         placeFood();
+      }
+
+      for (const snakeKey of SNAKE_KEYS) {
+        const snake = state.snakes[snakeKey];
+        if (snake.alive && snake.body.length < 2) {
+          snake.alive = false;
+          pushLog(`${snake.label} died: body length dropped below 2.`);
+        }
       }
 
       if (fromTimer && state.runEndsAt) {
