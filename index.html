@@ -1156,6 +1156,7 @@
 
       const decisions = {};
       const targets = {};
+      const willGrow = {};
 
       handleFoodExpiry();
 
@@ -1180,6 +1181,7 @@
           x: snake.body[0].x + delta.x,
           y: snake.body[0].y + delta.y
         };
+        willGrow[snakeKey] = Boolean(state.food && targets[snakeKey].x === state.food.x && targets[snakeKey].y === state.food.y);
       }
 
       const snakeA = state.snakes.snakeA;
@@ -1197,8 +1199,9 @@
             targets.snakeB.y === snakeA.body[0].y)
         )
       ) {
-        markSnakeDead("snakeA", "died in a head-to-head collision.");
-        markSnakeDead("snakeB", "died in a head-to-head collision.");
+        snakeA.alive = false;
+        snakeB.alive = false;
+        pushLog("snakes heads collided, both died");
       }
 
       for (const snakeKey of SNAKE_KEYS) {
@@ -1211,11 +1214,10 @@
           markSnakeDead(snakeKey, "died by wall.");
           continue;
         }
-        const willGrow = state.food && target.x === state.food.x && target.y === state.food.y;
         if (
           snake.body.some((segment, index) => {
             const isTail = index === snake.body.length - 1;
-            if (isTail && !willGrow) {
+            if (isTail && !willGrow[snakeKey]) {
               return false;
             }
             return segment.x === target.x && segment.y === target.y;
@@ -1227,6 +1229,10 @@
 
       const bitePlans = [];
       const biters = new Set();
+      const biteRemovals = {
+        snakeA: new Set(),
+        snakeB: new Set()
+      };
       for (const snakeKey of SNAKE_KEYS) {
         const snake = state.snakes[snakeKey];
         const target = targets[snakeKey];
@@ -1235,40 +1241,39 @@
         }
         const enemyKey = snakeKey === "snakeA" ? "snakeB" : "snakeA";
         const enemy = state.snakes[enemyKey];
-        if (enemy.alive && enemy.body.some((segment, idx) => idx > 0 && segment.x === target.x && segment.y === target.y)) {
-          bitePlans.push({ attackerKey: snakeKey, enemyKey, target });
+        const projectedBodySourceIndices = enemy.alive
+          ? enemy.body
+            .map((_, index) => index)
+            .slice(0, Math.max(0, enemy.body.length - (willGrow[enemyKey] ? 0 : 1)))
+          : [];
+        const bittenIndex = projectedBodySourceIndices.find((index) => {
+          const segment = enemy.body[index];
+          return segment.x === target.x && segment.y === target.y;
+        });
+        if (bittenIndex !== undefined) {
+          bitePlans.push({ attackerKey: snakeKey, enemyKey, target, bittenIndex });
           biters.add(snakeKey);
+          biteRemovals[enemyKey].add(bittenIndex);
         }
       }
 
       for (const plan of bitePlans) {
         const attacker = state.snakes[plan.attackerKey];
         const enemy = state.snakes[plan.enemyKey];
-        if (!attacker.alive || !enemy.alive || enemy.body.length === 0) {
-          continue;
-        }
-        const tail = enemy.body[enemy.body.length - 1];
-        const tailWasTarget = tail && tail.x === plan.target.x && tail.y === plan.target.y;
-        enemy.body.pop();
-        pushLog(`${SNAKE_LABELS[plan.attackerKey]} bit ${enemy.label}.`);
-        if (enemy.body.length === 0) {
-          enemy.alive = false;
-          pushLog(`${enemy.label} was bitten down to zero length.`);
-        } else if (tailWasTarget) {
-          pushLog(`${SNAKE_LABELS[plan.attackerKey]} cleared the bitten tail cell.`);
-        }
+        pushLog(
+          `${attacker.label} bit ${enemy.label} at (${plan.target.x}, ${plan.target.y}): ${attacker.label} +1 length, ${enemy.label} -1 segment.`
+        );
       }
 
       for (const snakeKey of SNAKE_KEYS) {
         const snake = state.snakes[snakeKey];
-        const target = targets[snakeKey];
-        if (!snake.alive || !target || biters.has(snakeKey)) {
+        if (!snake.alive || biteRemovals[snakeKey].size === 0) {
           continue;
         }
-        const enemyKey = snakeKey === "snakeA" ? "snakeB" : "snakeA";
-        const enemy = state.snakes[enemyKey];
-        if (enemy.alive && enemy.body.some((segment) => segment.x === target.x && segment.y === target.y)) {
-          markSnakeDead(snakeKey, `died colliding with ${enemy.label}.`);
+        snake.body = snake.body.filter((_, index) => !biteRemovals[snakeKey].has(index));
+        if (snake.body.length < 2) {
+          snake.alive = false;
+          pushLog(`${snake.label} died: body length dropped below 2.`);
         }
       }
 
