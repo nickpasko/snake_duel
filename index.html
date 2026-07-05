@@ -120,9 +120,14 @@
 
     .controls {
       display: grid;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 0.6rem;
       margin-bottom: 1rem;
+    }
+
+    .script-name-input {
+      flex: 1 1 8rem;
+      min-width: 6rem;
     }
 
     .status-grid {
@@ -222,8 +227,7 @@
       color: var(--snake-b-head);
     }
 
-    .editor-toolbar,
-    .json-toolbar {
+    .editor-toolbar {
       display: flex;
       flex-wrap: wrap;
       gap: 0.6rem;
@@ -334,7 +338,7 @@
 
     .json-log-grid {
       display: grid;
-      grid-template-columns: minmax(260px, 420px) minmax(0, 1fr);
+      grid-template-columns: 1fr;
       gap: 1rem;
       margin-top: 1rem;
     }
@@ -399,8 +403,6 @@
           <button id="pauseButton">Pause</button>
           <button id="resetButton">Reset</button>
           <button id="stepButton">Step</button>
-          <button id="exportButton">Export JSON</button>
-          <button id="importButton">Import JSON</button>
         </div>
 
         <div class="status-grid">
@@ -422,6 +424,10 @@
             <h2>Snake A</h2>
             <div class="editor-toolbar">
               <button data-add-rule="snakeA">Add rule</button>
+              <input type="text" id="scriptNameA" class="script-name-input" value="Snake A" aria-label="Script name for Snake A">
+              <button data-save-script="snakeA">Save script</button>
+              <button data-load-script="snakeA">Load script</button>
+              <input type="file" id="loadFileA" accept=".json" hidden>
             </div>
             <div id="rulesSnakeA" class="rules"></div>
           </section>
@@ -430,6 +436,10 @@
             <h2>Snake B</h2>
             <div class="editor-toolbar">
               <button data-add-rule="snakeB">Add rule</button>
+              <input type="text" id="scriptNameB" class="script-name-input" value="Snake B" aria-label="Script name for Snake B">
+              <button data-save-script="snakeB">Save script</button>
+              <button data-load-script="snakeB">Load script</button>
+              <input type="file" id="loadFileB" accept=".json" hidden>
             </div>
             <div id="rulesSnakeB" class="rules"></div>
           </section>
@@ -446,14 +456,6 @@
         </div>
 
         <div class="json-log-grid">
-          <section>
-            <h3>Behavior JSON</h3>
-            <div class="json-toolbar">
-              <span class="helper">Export and import both snakes at once.</span>
-            </div>
-            <textarea id="jsonField" spellcheck="false"></textarea>
-          </section>
-
           <section>
             <h3>Battle log</h3>
             <p class="helper">
@@ -534,15 +536,19 @@
       lastRuleAValue: document.getElementById("lastRuleAValue"),
       lastRuleBValue: document.getElementById("lastRuleBValue"),
       resultValue: document.getElementById("resultValue"),
-      jsonField: document.getElementById("jsonField"),
       eventLog: document.getElementById("eventLog"),
       startButton: document.getElementById("startButton"),
       pauseButton: document.getElementById("pauseButton"),
       resetButton: document.getElementById("resetButton"),
       stepButton: document.getElementById("stepButton"),
-      exportButton: document.getElementById("exportButton"),
-      importButton: document.getElementById("importButton")
+      scriptNameA: document.getElementById("scriptNameA"),
+      scriptNameB: document.getElementById("scriptNameB"),
+      loadFileA: document.getElementById("loadFileA"),
+      loadFileB: document.getElementById("loadFileB")
     };
+
+    const scriptNameRefs = { snakeA: refs.scriptNameA, snakeB: refs.scriptNameB };
+    const loadFileRefs = { snakeA: refs.loadFileA, snakeB: refs.loadFileB };
 
     function createPattern() {
       return Array.from({ length: VIEW_SIZE }, (_, row) =>
@@ -944,42 +950,48 @@
       return createRule(name, action, normalizePattern(rawRule && rawRule.pattern));
     }
 
-    function exportRulesJson() {
+    function saveScript(snakeKey) {
+      const scriptName = scriptNameRefs[snakeKey].value.trim() || SNAKE_LABELS[snakeKey];
       const payload = {
-        snakeA: state.rules.snakeA.map((rule) => ({
-          name: rule.name,
-          action: rule.action,
-          pattern: normalizePattern(rule.pattern)
-        })),
-        snakeB: state.rules.snakeB.map((rule) => ({
+        scriptName,
+        rules: state.rules[snakeKey].map((rule) => ({
           name: rule.name,
           action: rule.action,
           pattern: normalizePattern(rule.pattern)
         }))
       };
       const json = JSON.stringify(payload, null, 2);
-      refs.jsonField.value = json;
-      pushLog("Behavior JSON exported.");
+      const blob = new Blob([json], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${scriptName.toLowerCase().replace(/[^a-z0-9_-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "script"}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      pushLog(`Script "${scriptName}" saved.`);
     }
 
-    function importRulesJson() {
-      try {
-        const parsed = JSON.parse(refs.jsonField.value);
-        const snakeARules = Array.isArray(parsed.snakeA)
-          ? parsed.snakeA.map((rule, index) => normalizeRule(rule, `Snake A rule ${index + 1}`))
-          : [];
-        const snakeBRules = Array.isArray(parsed.snakeB)
-          ? parsed.snakeB.map((rule, index) => normalizeRule(rule, `Snake B rule ${index + 1}`))
-          : [];
-        state.rules.snakeA = snakeARules;
-        state.rules.snakeB = snakeBRules;
-        state.lastRule = { snakeA: "—", snakeB: "—" };
-        state.lastRuleIndex = { snakeA: -1, snakeB: -1 };
-        renderEditors();
-        pushLog("Behavior JSON imported.");
-      } catch (error) {
-        window.alert(`Invalid JSON: ${error.message}`);
-      }
+    function loadScript(snakeKey, file) {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        try {
+          const parsed = JSON.parse(event.target.result);
+          const rules = Array.isArray(parsed.rules)
+            ? parsed.rules.map((rule, index) => normalizeRule(rule, `${SNAKE_LABELS[snakeKey]} rule ${index + 1}`))
+            : [];
+          state.rules[snakeKey] = rules;
+          state.lastRule[snakeKey] = "—";
+          state.lastRuleIndex[snakeKey] = -1;
+          if (parsed.scriptName && typeof parsed.scriptName === "string") {
+            scriptNameRefs[snakeKey].value = parsed.scriptName;
+          }
+          renderEditors();
+          pushLog(`Script "${parsed.scriptName || file.name}" loaded into ${SNAKE_LABELS[snakeKey]}.`);
+        } catch (error) {
+          window.alert(`Invalid JSON: ${error.message}`);
+        }
+      };
+      reader.readAsText(file);
     }
 
     function placeFood() {
@@ -1319,6 +1331,18 @@
           return;
         }
 
+        const saveButton = event.target.closest("[data-save-script]");
+        if (saveButton) {
+          saveScript(snakeKey);
+          return;
+        }
+
+        const loadButton = event.target.closest("[data-load-script]");
+        if (loadButton) {
+          loadFileRefs[snakeKey].click();
+          return;
+        }
+
         const card = event.target.closest(".rule-card");
         if (!card) {
           return;
@@ -1389,8 +1413,14 @@
           stepBattle();
         }
       });
-      refs.exportButton.addEventListener("click", exportRulesJson);
-      refs.importButton.addEventListener("click", importRulesJson);
+      function onLoadFileChange(snakeKey, event) {
+        if (event.target.files[0]) {
+          loadScript(snakeKey, event.target.files[0]);
+        }
+        event.target.value = "";
+      }
+      refs.loadFileA.addEventListener("change", (e) => onLoadFileChange("snakeA", e));
+      refs.loadFileB.addEventListener("change", (e) => onLoadFileChange("snakeB", e));
       bindEditorEvents(document.querySelector(".snake-editor.snake-a"), "snakeA");
       bindEditorEvents(document.querySelector(".snake-editor.snake-b"), "snakeB");
     }
@@ -1398,7 +1428,6 @@
     resetRulesToDefaults();
     wireControls();
     resetBattleState(true);
-    exportRulesJson();
   </script>
 </body>
 </html>
