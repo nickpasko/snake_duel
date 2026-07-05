@@ -965,7 +965,7 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${scriptName.toLowerCase().replace(/\s+/g, "-")}.json`;
+      a.download = `${scriptName.toLowerCase().replace(/[^a-z0-9_-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "script"}.json`;
       a.click();
       URL.revokeObjectURL(url);
       pushLog(`Script "${scriptName}" saved.`);
@@ -1413,18 +1413,14 @@
           stepBattle();
         }
       });
-      refs.loadFileA.addEventListener("change", (event) => {
+      function onLoadFileChange(snakeKey, event) {
         if (event.target.files[0]) {
-          loadScript("snakeA", event.target.files[0]);
+          loadScript(snakeKey, event.target.files[0]);
         }
         event.target.value = "";
-      });
-      refs.loadFileB.addEventListener("change", (event) => {
-        if (event.target.files[0]) {
-          loadScript("snakeB", event.target.files[0]);
-        }
-        event.target.value = "";
-      });
+      }
+      refs.loadFileA.addEventListener("change", (e) => onLoadFileChange("snakeA", e));
+      refs.loadFileB.addEventListener("change", (e) => onLoadFileChange("snakeB", e));
       bindEditorEvents(document.querySelector(".snake-editor.snake-a"), "snakeA");
       bindEditorEvents(document.querySelector(".snake-editor.snake-b"), "snakeB");
     }
