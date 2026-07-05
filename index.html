@@ -273,7 +273,7 @@
 
     .pattern-grid {
       display: grid;
-      grid-template-columns: repeat(5, 36px);
+      grid-template-columns: repeat(var(--view-size, 5), 36px);
       gap: 3px;
       justify-content: start;
     }
@@ -743,6 +743,7 @@
     function renderRuleList(snakeKey) {
       const rules = state.rules[snakeKey];
       const container = snakeKey === "snakeA" ? refs.rulesSnakeA : refs.rulesSnakeB;
+      container.style.setProperty("--view-size", VIEW_SIZE);
       container.innerHTML = rules.length
         ? rules
             .map((rule, index) => {
