@@ -404,10 +404,10 @@
         </div>
 
         <div class="status-grid">
-          <div class="status-card"><small>Timer</small><strong id="timerValue">2:00</strong></div>
-          <div class="status-card"><small>Status</small><strong id="statusValue">paused</strong></div>
-          <div class="status-card"><small>Snake A length</small><strong id="lengthAValue">3</strong></div>
-          <div class="status-card"><small>Snake B length</small><strong id="lengthBValue">3</strong></div>
+          <div class="status-card"><small>Timer</small><strong id="timerValue">—</strong></div>
+          <div class="status-card"><small>Status</small><strong id="statusValue">—</strong></div>
+          <div class="status-card"><small>Snake A length</small><strong id="lengthAValue">—</strong></div>
+          <div class="status-card"><small>Snake B length</small><strong id="lengthBValue">—</strong></div>
           <div class="status-card"><small>Snake A last rule</small><strong id="lastRuleAValue">—</strong></div>
           <div class="status-card"><small>Snake B last rule</small><strong id="lastRuleBValue">—</strong></div>
           <div class="status-card" style="grid-column: 1 / -1;"><small>Battle result</small><strong id="resultValue">In progress</strong></div>
@@ -471,8 +471,10 @@
     const GRID_SIZE = 13;
     const VIEW_SIZE = 5;
     const VIEW_CENTER = 2;
-    const BATTLE_DURATION_MS = 120000;
+    const BATTLE_DURATION_MS = 120000; // 2 minutes
     const TICK_MS = 350;
+    const MAX_EVENT_LOG_ENTRIES = 80; // Keep enough context without letting the log grow indefinitely.
+    const DEFAULT_RULE_NAME = "Unnamed rule";
     const CELL_TYPES = ["any", "empty", "self", "enemy", "food", "wall"];
     const TURN_ORDER = ["up", "right", "down", "left"];
     const DIRECTION_DELTAS = {
@@ -509,6 +511,7 @@
       food: null,
       eventLog: [],
       timerId: null,
+      runEndsAt: null,
       result: "In progress",
       lastRule: {
         snakeA: "—",
@@ -576,6 +579,7 @@
     }
 
     function resetRulesToDefaults() {
+      ruleIdCounter = 1;
       state.rules.snakeA = createDemoRules("Snake A");
       state.rules.snakeB = createDemoRules("Snake B");
     }
@@ -613,6 +617,7 @@
       state.status = "paused";
       state.remainingMs = BATTLE_DURATION_MS;
       state.result = "In progress";
+      state.runEndsAt = null;
       state.lastRule = { snakeA: "—", snakeB: "—" };
       state.lastRuleIndex = { snakeA: -1, snakeB: -1 };
       state.snakes.snakeA = createInitialSnake("snakeA");
@@ -628,7 +633,7 @@
 
     function pushLog(message) {
       state.eventLog.unshift(message);
-      state.eventLog = state.eventLog.slice(0, 80);
+      state.eventLog = state.eventLog.slice(0, MAX_EVENT_LOG_ENTRIES);
       renderLog();
     }
 
@@ -774,7 +779,7 @@
 
     function stopTimer() {
       if (state.timerId) {
-        clearInterval(state.timerId);
+        clearTimeout(state.timerId);
         state.timerId = null;
       }
     }
@@ -787,15 +792,31 @@
         return;
       }
       state.status = "running";
+      state.runEndsAt = Date.now() + state.remainingMs;
       renderStatus();
       pushLog("Battle started.");
-      state.timerId = window.setInterval(() => {
-        stepBattle();
+      scheduleNextTick();
+    }
+
+    function scheduleNextTick() {
+      state.timerId = window.setTimeout(() => {
+        state.timerId = null;
+        if (state.status !== "running") {
+          return;
+        }
+        stepBattle(true);
+        if (state.status === "running") {
+          scheduleNextTick();
+        }
       }, TICK_MS);
     }
 
     function pauseBattle(log = true) {
+      if (state.status === "running" && state.runEndsAt) {
+        state.remainingMs = Math.max(0, state.runEndsAt - Date.now());
+      }
       stopTimer();
+      state.runEndsAt = null;
       if (state.status !== "finished") {
         state.status = "paused";
       }
@@ -807,6 +828,7 @@
 
     function finalizeBattle(reason) {
       stopTimer();
+      state.runEndsAt = null;
       state.status = "finished";
       const snakeAAlive = state.snakes.snakeA.alive;
       const snakeBAlive = state.snakes.snakeB.alive;
@@ -1044,12 +1066,19 @@
       pushLog(`${snake.label} ${reason}`);
     }
 
-    function stepBattle() {
+    function stepBattle(fromTimer = false) {
       if (state.status === "finished") {
         return;
       }
 
-      if (state.status !== "running" && state.timerId) {
+      if (fromTimer && state.status !== "running") {
+        return;
+      }
+
+      if (fromTimer && state.runEndsAt && Date.now() >= state.runEndsAt) {
+        state.remainingMs = 0;
+        renderAll();
+        finalizeBattle("Battle finished. Time expired.");
         return;
       }
 
@@ -1108,7 +1137,16 @@
           markSnakeDead(snakeKey, "died by wall.");
           continue;
         }
-        if (snake.body.some((segment) => segment.x === target.x && segment.y === target.y)) {
+        const willGrow = state.food && target.x === state.food.x && target.y === state.food.y;
+        if (
+          snake.body.some((segment, index) => {
+            const isTail = index === snake.body.length - 1;
+            if (isTail && !willGrow) {
+              return false;
+            }
+            return segment.x === target.x && segment.y === target.y;
+          })
+        ) {
           markSnakeDead(snakeKey, "died by self collision.");
         }
       }
@@ -1132,12 +1170,14 @@
         if (!enemy.alive || enemy.body.length === 0) {
           continue;
         }
-        const removed = enemy.body.pop();
+        const tail = enemy.body[enemy.body.length - 1];
+        const tailWasTarget = tail && tail.x === plan.target.x && tail.y === plan.target.y;
+        enemy.body.pop();
         pushLog(`${SNAKE_LABELS[plan.attackerKey]} bit ${enemy.label}.`);
         if (enemy.body.length === 0) {
           enemy.alive = false;
           pushLog(`${enemy.label} was bitten down to zero length.`);
-        } else if (removed && removed.x === plan.target.x && removed.y === plan.target.y) {
+        } else if (tailWasTarget) {
           pushLog(`${SNAKE_LABELS[plan.attackerKey]} cleared the bitten tail cell.`);
         }
       }
@@ -1175,7 +1215,11 @@
         placeFood();
       }
 
-      state.remainingMs -= TICK_MS;
+      if (fromTimer && state.runEndsAt) {
+        state.remainingMs = Math.max(0, state.runEndsAt - Date.now());
+      } else {
+        state.remainingMs = Math.max(0, state.remainingMs - TICK_MS);
+      }
       if (state.remainingMs <= 0) {
         state.remainingMs = 0;
         renderAll();
@@ -1275,7 +1319,7 @@
           return;
         }
         if (event.target.dataset.field === "name") {
-          rule.name = event.target.value || "Unnamed rule";
+          rule.name = event.target.value || DEFAULT_RULE_NAME;
         }
       });
 
