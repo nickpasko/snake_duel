@@ -1203,6 +1203,7 @@
       }
 
       const bitePlans = [];
+      const biters = new Set();
       for (const snakeKey of SNAKE_KEYS) {
         const snake = state.snakes[snakeKey];
         const target = targets[snakeKey];
@@ -1211,14 +1212,16 @@
         }
         const enemyKey = snakeKey === "snakeA" ? "snakeB" : "snakeA";
         const enemy = state.snakes[enemyKey];
-        if (enemy.alive && enemy.body.some((segment) => segment.x === target.x && segment.y === target.y)) {
+        if (enemy.alive && enemy.body.some((segment, idx) => idx > 0 && segment.x === target.x && segment.y === target.y)) {
           bitePlans.push({ attackerKey: snakeKey, enemyKey, target });
+          biters.add(snakeKey);
         }
       }
 
       for (const plan of bitePlans) {
+        const attacker = state.snakes[plan.attackerKey];
         const enemy = state.snakes[plan.enemyKey];
-        if (!enemy.alive || enemy.body.length === 0) {
+        if (!attacker.alive || !enemy.alive || enemy.body.length === 0) {
           continue;
         }
         const tail = enemy.body[enemy.body.length - 1];
@@ -1236,13 +1239,13 @@
       for (const snakeKey of SNAKE_KEYS) {
         const snake = state.snakes[snakeKey];
         const target = targets[snakeKey];
-        if (!snake.alive || !target) {
+        if (!snake.alive || !target || biters.has(snakeKey)) {
           continue;
         }
         const enemyKey = snakeKey === "snakeA" ? "snakeB" : "snakeA";
         const enemy = state.snakes[enemyKey];
         if (enemy.alive && enemy.body.some((segment) => segment.x === target.x && segment.y === target.y)) {
-          markSnakeDead(snakeKey, `died after biting into ${enemy.label}'s body.`);
+          markSnakeDead(snakeKey, `died colliding with ${enemy.label}.`);
         }
       }
 
@@ -1257,7 +1260,7 @@
         if (ateFood) {
           pushLog(`${snake.label} ate food.`);
           state.food = null;
-        } else {
+        } else if (!biters.has(snakeKey)) {
           snake.body.pop();
         }
       }
