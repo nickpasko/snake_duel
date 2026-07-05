@@ -571,13 +571,13 @@
 
     function createDemoRules(prefix) {
       const foodLeft = createPattern();
-      foodLeft[2][1] = "food";
+      foodLeft[VIEW_CENTER][VIEW_CENTER - 1] = "food";
 
       const foodRight = createPattern();
-      foodRight[2][3] = "food";
+      foodRight[VIEW_CENTER][VIEW_CENTER + 1] = "food";
 
       const wallAhead = createPattern();
-      wallAhead[1][2] = "wall";
+      wallAhead[VIEW_CENTER - 1][VIEW_CENTER] = "wall";
 
       return [
         createRule(`${prefix}: turn to food on the left`, "left", foodLeft),
