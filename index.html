@@ -156,7 +156,7 @@
 
     .arena {
       display: grid;
-      grid-template-columns: repeat(13, 1fr);
+      grid-template-columns: repeat(var(--grid-size, 13), 1fr);
       gap: 2px;
       background: var(--border);
       border: 2px solid var(--danger);
@@ -700,6 +700,7 @@
     }
 
     function renderArena() {
+      refs.arena.style.setProperty("--grid-size", GRID_SIZE);
       const cells = [];
       for (let y = 0; y < GRID_SIZE; y += 1) {
         for (let x = 0; x < GRID_SIZE; x += 1) {
