@@ -1,0 +1,1365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Snake Duel Arena</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #12151d;
+      --panel: #1a1f2b;
+      --panel-soft: #232a39;
+      --border: #334058;
+      --text: #edf2ff;
+      --muted: #9eabc8;
+      --accent: #7dd3fc;
+      --snake-a: #60a5fa;
+      --snake-a-head: #bfdbfe;
+      --snake-b: #f472b6;
+      --snake-b-head: #fbcfe8;
+      --food: #facc15;
+      --danger: #fb7185;
+      --empty: #0f172a;
+      --wall: #475569;
+      --self: #38bdf8;
+      --enemy: #f472b6;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: linear-gradient(180deg, #0b0f17, var(--bg));
+      color: var(--text);
+    }
+
+    button,
+    input,
+    select,
+    textarea {
+      font: inherit;
+    }
+
+    button,
+    select,
+    input,
+    textarea {
+      background: var(--panel-soft);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    button {
+      cursor: pointer;
+      padding: 0.55rem 0.9rem;
+    }
+
+    button:hover {
+      border-color: var(--accent);
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.6;
+    }
+
+    input,
+    select,
+    textarea {
+      padding: 0.5rem 0.65rem;
+    }
+
+    textarea {
+      min-height: 180px;
+      resize: vertical;
+      width: 100%;
+    }
+
+    .page {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 1rem;
+      display: grid;
+      gap: 1rem;
+    }
+
+    .hero {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 1rem;
+    }
+
+    .hero p {
+      margin: 0.35rem 0 0;
+      max-width: 760px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(320px, 430px) minmax(0, 1fr);
+      gap: 1rem;
+      align-items: start;
+    }
+
+    .panel {
+      background: rgba(26, 31, 43, 0.96);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+    }
+
+    .controls {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.6rem;
+      margin-bottom: 1rem;
+    }
+
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+
+    .status-card {
+      background: var(--panel-soft);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.75rem;
+    }
+
+    .status-card small {
+      display: block;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+    }
+
+    .status-card strong {
+      font-size: 1.1rem;
+    }
+
+    .arena {
+      display: grid;
+      grid-template-columns: repeat(13, 1fr);
+      gap: 2px;
+      background: var(--border);
+      border: 2px solid var(--danger);
+      border-radius: 14px;
+      padding: 2px;
+      aspect-ratio: 1;
+    }
+
+    .cell {
+      min-width: 0;
+      min-height: 0;
+      aspect-ratio: 1;
+      border-radius: 4px;
+      background: var(--empty);
+      position: relative;
+    }
+
+    .cell.edge {
+      box-shadow: inset 0 0 0 1px rgba(251, 113, 133, 0.3);
+    }
+
+    .cell.food {
+      background: var(--food);
+      box-shadow: inset 0 0 0 2px rgba(15, 23, 42, 0.45);
+    }
+
+    .cell.snake-a {
+      background: var(--snake-a);
+    }
+
+    .cell.snake-b {
+      background: var(--snake-b);
+    }
+
+    .cell.head.snake-a {
+      background: var(--snake-a-head);
+    }
+
+    .cell.head.snake-b {
+      background: var(--snake-b-head);
+    }
+
+    .cell.head::after {
+      content: "";
+      position: absolute;
+      inset: 24%;
+      border-radius: 50%;
+      background: rgba(15, 23, 42, 0.55);
+    }
+
+    .editor-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1rem;
+    }
+
+    .snake-editor h2,
+    .panel h3,
+    .panel h4 {
+      margin: 0 0 0.75rem;
+    }
+
+    .snake-editor.snake-a h2 {
+      color: var(--snake-a-head);
+    }
+
+    .snake-editor.snake-b h2 {
+      color: var(--snake-b-head);
+    }
+
+    .editor-toolbar,
+    .json-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.6rem;
+      margin-bottom: 0.75rem;
+      align-items: center;
+    }
+
+    .rules {
+      display: grid;
+      gap: 0.8rem;
+      max-height: 980px;
+      overflow: auto;
+      padding-right: 0.25rem;
+    }
+
+    .rule-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--panel-soft);
+      padding: 0.75rem;
+      display: grid;
+      gap: 0.7rem;
+    }
+
+    .rule-card.active {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px rgba(125, 211, 252, 0.35);
+    }
+
+    .rule-header {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto auto auto;
+      gap: 0.45rem;
+      align-items: center;
+    }
+
+    .rule-meta {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 128px;
+      gap: 0.6rem;
+      align-items: center;
+    }
+
+    .pattern-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 36px);
+      gap: 3px;
+      justify-content: start;
+    }
+
+    .pattern-cell {
+      width: 36px;
+      height: 36px;
+      padding: 0;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #08111f;
+      font-size: 0.72rem;
+      font-weight: bold;
+    }
+
+    .pattern-cell.any {
+      background: #cbd5e1;
+    }
+
+    .pattern-cell.empty {
+      background: var(--empty);
+      color: var(--muted);
+    }
+
+    .pattern-cell.self {
+      background: var(--self);
+    }
+
+    .pattern-cell.enemy {
+      background: var(--enemy);
+    }
+
+    .pattern-cell.food {
+      background: var(--food);
+    }
+
+    .pattern-cell.wall {
+      background: var(--wall);
+      color: var(--text);
+    }
+
+    .pattern-cell.head {
+      background: #f8fafc;
+      color: #111827;
+      cursor: default;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-top: 0.5rem;
+    }
+
+    .legend span {
+      padding: 0.3rem 0.5rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      font-size: 0.84rem;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .json-log-grid {
+      display: grid;
+      grid-template-columns: minmax(260px, 420px) minmax(0, 1fr);
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+
+    .log {
+      background: #0b1220;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.75rem;
+      min-height: 180px;
+      max-height: 320px;
+      overflow: auto;
+      display: grid;
+      gap: 0.45rem;
+      align-content: start;
+    }
+
+    .log-entry {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding-bottom: 0.45rem;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+
+    .log-entry strong {
+      color: var(--text);
+    }
+
+    .helper {
+      color: var(--muted);
+      margin: 0;
+      line-height: 1.45;
+      font-size: 0.92rem;
+    }
+
+    @media (max-width: 1080px) {
+      .layout,
+      .editor-grid,
+      .json-log-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <section class="hero">
+      <div>
+        <h1>Snake Duel Arena</h1>
+        <p>
+          You do not steer the snakes directly. Instead, you author their instincts:
+          each snake scans a 5×5 view around its head, matches the first visual rule,
+          and turns left, right, or continues straight.
+        </p>
+      </div>
+    </section>
+
+    <section class="layout">
+      <div class="panel">
+        <div class="controls">
+          <button id="startButton">Start</button>
+          <button id="pauseButton">Pause</button>
+          <button id="resetButton">Reset</button>
+          <button id="stepButton">Step</button>
+          <button id="exportButton">Export JSON</button>
+          <button id="importButton">Import JSON</button>
+        </div>
+
+        <div class="status-grid">
+          <div class="status-card"><small>Timer</small><strong id="timerValue">—</strong></div>
+          <div class="status-card"><small>Status</small><strong id="statusValue">—</strong></div>
+          <div class="status-card"><small>Snake A length</small><strong id="lengthAValue">—</strong></div>
+          <div class="status-card"><small>Snake B length</small><strong id="lengthBValue">—</strong></div>
+          <div class="status-card"><small>Snake A last rule</small><strong id="lastRuleAValue">—</strong></div>
+          <div class="status-card"><small>Snake B last rule</small><strong id="lastRuleBValue">—</strong></div>
+          <div class="status-card" style="grid-column: 1 / -1;"><small>Battle result</small><strong id="resultValue">In progress</strong></div>
+        </div>
+
+        <div id="arena" class="arena" aria-label="Snake duel arena"></div>
+      </div>
+
+      <div class="panel">
+        <div class="editor-grid">
+          <section class="snake-editor snake-a">
+            <h2>Snake A</h2>
+            <div class="editor-toolbar">
+              <button data-add-rule="snakeA">Add rule</button>
+            </div>
+            <div id="rulesSnakeA" class="rules"></div>
+          </section>
+
+          <section class="snake-editor snake-b">
+            <h2>Snake B</h2>
+            <div class="editor-toolbar">
+              <button data-add-rule="snakeB">Add rule</button>
+            </div>
+            <div id="rulesSnakeB" class="rules"></div>
+          </section>
+        </div>
+
+        <div class="legend">
+          <span>ANY</span>
+          <span>EMPTY</span>
+          <span>SELF</span>
+          <span>ENEMY</span>
+          <span>FOOD</span>
+          <span>WALL</span>
+          <span>HEAD (fixed center)</span>
+        </div>
+
+        <div class="json-log-grid">
+          <section>
+            <h3>Behavior JSON</h3>
+            <div class="json-toolbar">
+              <span class="helper">Export and import both snakes at once.</span>
+            </div>
+            <textarea id="jsonField" spellcheck="false"></textarea>
+          </section>
+
+          <section>
+            <h3>Battle log</h3>
+            <p class="helper">
+              The event log explains which rule fired, when food was eaten, who bit whom,
+              and how the duel ended.
+            </p>
+            <div id="eventLog" class="log"></div>
+          </section>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const GRID_SIZE = 13;
+    const VIEW_SIZE = 5;
+    const VIEW_CENTER = 2;
+    const BATTLE_DURATION_MS = 120000; // 2 minutes
+    const TICK_MS = 350;
+    const MAX_EVENT_LOG_ENTRIES = 80; // Keep enough context without letting the log grow indefinitely.
+    const DEFAULT_RULE_NAME = "Unnamed rule";
+    const CELL_TYPES = ["any", "empty", "self", "enemy", "food", "wall"];
+    const TURN_ORDER = ["up", "right", "down", "left"];
+    const DIRECTION_DELTAS = {
+      up: { x: 0, y: -1 },
+      right: { x: 1, y: 0 },
+      down: { x: 0, y: 1 },
+      left: { x: -1, y: 0 }
+    };
+    const SNAKE_KEYS = ["snakeA", "snakeB"];
+    const SNAKE_LABELS = {
+      snakeA: "Snake A",
+      snakeB: "Snake B"
+    };
+    const PATTERN_LABELS = {
+      any: "ANY",
+      empty: "EMP",
+      self: "SELF",
+      enemy: "ENMY",
+      food: "FOOD",
+      wall: "WALL",
+      head: "HEAD"
+    };
+
+    let ruleIdCounter = 1;
+
+    const state = {
+      status: "paused",
+      remainingMs: BATTLE_DURATION_MS,
+      snakes: {},
+      rules: {
+        snakeA: [],
+        snakeB: []
+      },
+      food: null,
+      eventLog: [],
+      timerId: null,
+      runEndsAt: null,
+      result: "In progress",
+      lastRule: {
+        snakeA: "—",
+        snakeB: "—"
+      },
+      lastRuleIndex: {
+        snakeA: -1,
+        snakeB: -1
+      }
+    };
+
+    const refs = {
+      arena: document.getElementById("arena"),
+      rulesSnakeA: document.getElementById("rulesSnakeA"),
+      rulesSnakeB: document.getElementById("rulesSnakeB"),
+      timerValue: document.getElementById("timerValue"),
+      statusValue: document.getElementById("statusValue"),
+      lengthAValue: document.getElementById("lengthAValue"),
+      lengthBValue: document.getElementById("lengthBValue"),
+      lastRuleAValue: document.getElementById("lastRuleAValue"),
+      lastRuleBValue: document.getElementById("lastRuleBValue"),
+      resultValue: document.getElementById("resultValue"),
+      jsonField: document.getElementById("jsonField"),
+      eventLog: document.getElementById("eventLog"),
+      startButton: document.getElementById("startButton"),
+      pauseButton: document.getElementById("pauseButton"),
+      resetButton: document.getElementById("resetButton"),
+      stepButton: document.getElementById("stepButton"),
+      exportButton: document.getElementById("exportButton"),
+      importButton: document.getElementById("importButton")
+    };
+
+    function createPattern() {
+      return Array.from({ length: VIEW_SIZE }, (_, row) =>
+        Array.from({ length: VIEW_SIZE }, (_, col) =>
+          row === VIEW_CENTER && col === VIEW_CENTER ? "head" : "any"
+        )
+      );
+    }
+
+    function createRule(name, action, pattern) {
+      return {
+        id: `rule-${ruleIdCounter++}`,
+        name,
+        action,
+        pattern: normalizePattern(pattern || createPattern())
+      };
+    }
+
+    function createDemoRules(prefix) {
+      const foodLeft = createPattern();
+      foodLeft[2][1] = "food";
+
+      const foodRight = createPattern();
+      foodRight[2][3] = "food";
+
+      const wallAhead = createPattern();
+      wallAhead[1][2] = "wall";
+
+      return [
+        createRule(`${prefix}: turn to food on the left`, "left", foodLeft),
+        createRule(`${prefix}: turn to food on the right`, "right", foodRight),
+        createRule(`${prefix}: avoid wall ahead`, "left", wallAhead)
+      ];
+    }
+
+    function resetRulesToDefaults() {
+      ruleIdCounter = 1;
+      state.rules.snakeA = createDemoRules("Snake A");
+      state.rules.snakeB = createDemoRules("Snake B");
+    }
+
+    function createInitialSnake(key) {
+      if (key === "snakeA") {
+        return {
+          key,
+          label: SNAKE_LABELS[key],
+          alive: true,
+          direction: "right",
+          body: [
+            { x: 2, y: 6 },
+            { x: 1, y: 6 },
+            { x: 0, y: 6 }
+          ]
+        };
+      }
+
+      return {
+        key,
+        label: SNAKE_LABELS[key],
+        alive: true,
+        direction: "left",
+        body: [
+          { x: 10, y: 6 },
+          { x: 11, y: 6 },
+          { x: 12, y: 6 }
+        ]
+      };
+    }
+
+    function resetBattleState(logReset = true) {
+      stopTimer();
+      state.status = "paused";
+      state.remainingMs = BATTLE_DURATION_MS;
+      state.result = "In progress";
+      state.runEndsAt = null;
+      state.lastRule = { snakeA: "—", snakeB: "—" };
+      state.lastRuleIndex = { snakeA: -1, snakeB: -1 };
+      state.snakes.snakeA = createInitialSnake("snakeA");
+      state.snakes.snakeB = createInitialSnake("snakeB");
+      state.food = null;
+      placeFood();
+      if (logReset) {
+        state.eventLog = [];
+        pushLog("Battle reset.");
+      }
+      renderAll();
+    }
+
+    function pushLog(message) {
+      state.eventLog.unshift(message);
+      state.eventLog = state.eventLog.slice(0, MAX_EVENT_LOG_ENTRIES);
+      renderLog();
+    }
+
+    function renderLog() {
+      refs.eventLog.innerHTML = state.eventLog.length
+        ? state.eventLog
+            .map((entry) => `<div class="log-entry"><strong>•</strong> ${escapeHtml(entry)}</div>`)
+            .join("")
+        : `<div class="log-entry">No events yet.</div>`;
+    }
+
+    function formatTimer(ms) {
+      const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+      const minutes = Math.floor(totalSeconds / 60);
+      const seconds = totalSeconds % 60;
+      return `${minutes}:${String(seconds).padStart(2, "0")}`;
+    }
+
+    function renderArena() {
+      const cells = [];
+      for (let y = 0; y < GRID_SIZE; y += 1) {
+        for (let x = 0; x < GRID_SIZE; x += 1) {
+          const classes = ["cell"];
+          if (x === 0 || y === 0 || x === GRID_SIZE - 1 || y === GRID_SIZE - 1) {
+            classes.push("edge");
+          }
+          if (state.food && state.food.x === x && state.food.y === y) {
+            classes.push("food");
+          }
+          for (const snakeKey of SNAKE_KEYS) {
+            const snake = state.snakes[snakeKey];
+            if (!snake.alive) {
+              continue;
+            }
+            const segmentIndex = snake.body.findIndex((segment) => segment.x === x && segment.y === y);
+            if (segmentIndex !== -1) {
+              classes.push(snakeKey === "snakeA" ? "snake-a" : "snake-b");
+              if (segmentIndex === 0) {
+                classes.push("head");
+              }
+            }
+          }
+          cells.push(`<div class="${classes.join(" ")}"></div>`);
+        }
+      }
+      refs.arena.innerHTML = cells.join("");
+    }
+
+    function renderStatus() {
+      refs.timerValue.textContent = formatTimer(state.remainingMs);
+      refs.statusValue.textContent = state.status;
+      refs.lengthAValue.textContent = String(state.snakes.snakeA.body.length);
+      refs.lengthBValue.textContent = String(state.snakes.snakeB.body.length);
+      refs.lastRuleAValue.textContent = state.lastRule.snakeA;
+      refs.lastRuleBValue.textContent = state.lastRule.snakeB;
+      refs.resultValue.textContent = state.result;
+    }
+
+    function renderRuleList(snakeKey) {
+      const rules = state.rules[snakeKey];
+      const container = snakeKey === "snakeA" ? refs.rulesSnakeA : refs.rulesSnakeB;
+      container.innerHTML = rules.length
+        ? rules
+            .map((rule, index) => {
+              const activeClass = state.lastRuleIndex[snakeKey] === index ? " active" : "";
+              return `
+                <article class="rule-card${activeClass}" data-snake="${snakeKey}" data-rule-id="${rule.id}">
+                  <div class="rule-header">
+                    <input type="text" value="${escapeAttribute(rule.name)}" data-field="name" aria-label="${SNAKE_LABELS[snakeKey]} rule name" />
+                    <button data-move="up" ${index === 0 ? "disabled" : ""}>↑</button>
+                    <button data-move="down" ${index === rules.length - 1 ? "disabled" : ""}>↓</button>
+                    <button data-delete-rule="true">Delete</button>
+                  </div>
+                  <div class="rule-meta">
+                    <label>
+                      <span class="helper">Action</span>
+                      <select data-field="action" aria-label="${SNAKE_LABELS[snakeKey]} rule action">
+                        ${["left", "straight", "right"]
+                          .map(
+                            (action) =>
+                              `<option value="${action}" ${rule.action === action ? "selected" : ""}>${action}</option>`
+                          )
+                          .join("")}
+                      </select>
+                    </label>
+                    <div class="helper">First matching rule wins.</div>
+                  </div>
+                  <div class="pattern-grid">
+                    ${renderPatternButtons(rule.pattern)}
+                  </div>
+                </article>
+              `;
+            })
+            .join("")
+        : `<p class="helper">No rules yet. Add one to define this snake's instincts.</p>`;
+    }
+
+    function renderPatternButtons(pattern) {
+      return pattern
+        .map((row, rowIndex) =>
+          row
+            .map((cell, colIndex) => {
+              const disabled = rowIndex === VIEW_CENTER && colIndex === VIEW_CENTER;
+              return `
+                <button
+                  type="button"
+                  class="pattern-cell ${cell}"
+                  data-pattern-row="${rowIndex}"
+                  data-pattern-col="${colIndex}"
+                  title="${cell}"
+                  ${disabled ? "disabled" : ""}
+                >${PATTERN_LABELS[cell]}</button>
+              `;
+            })
+            .join("")
+        )
+        .join("");
+    }
+
+    function renderEditors() {
+      renderRuleList("snakeA");
+      renderRuleList("snakeB");
+    }
+
+    function renderAll() {
+      renderArena();
+      renderStatus();
+      renderEditors();
+      renderLog();
+    }
+
+    function escapeHtml(value) {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;");
+    }
+
+    function escapeAttribute(value) {
+      return escapeHtml(value).replaceAll("'", "&#39;");
+    }
+
+    function stopTimer() {
+      if (state.timerId) {
+        clearTimeout(state.timerId);
+        state.timerId = null;
+      }
+    }
+
+    function startBattle() {
+      if (state.status === "finished") {
+        return;
+      }
+      if (state.timerId) {
+        return;
+      }
+      state.status = "running";
+      state.runEndsAt = Date.now() + state.remainingMs;
+      renderStatus();
+      pushLog("Battle started.");
+      scheduleNextTick();
+    }
+
+    function scheduleNextTick() {
+      state.timerId = window.setTimeout(() => {
+        state.timerId = null;
+        if (state.status !== "running") {
+          return;
+        }
+        stepBattle(true);
+        if (state.status === "running") {
+          scheduleNextTick();
+        }
+      }, TICK_MS);
+    }
+
+    function pauseBattle(log = true) {
+      if (state.status === "running" && state.runEndsAt) {
+        state.remainingMs = Math.max(0, state.runEndsAt - Date.now());
+      }
+      stopTimer();
+      state.runEndsAt = null;
+      if (state.status !== "finished") {
+        state.status = "paused";
+      }
+      renderStatus();
+      if (log) {
+        pushLog("Battle paused.");
+      }
+    }
+
+    function finalizeBattle(reason) {
+      stopTimer();
+      state.runEndsAt = null;
+      state.status = "finished";
+      const snakeAAlive = state.snakes.snakeA.alive;
+      const snakeBAlive = state.snakes.snakeB.alive;
+      const lenA = state.snakes.snakeA.body.length;
+      const lenB = state.snakes.snakeB.body.length;
+
+      if (snakeAAlive && !snakeBAlive) {
+        state.result = "Snake A wins";
+      } else if (!snakeAAlive && snakeBAlive) {
+        state.result = "Snake B wins";
+      } else if (snakeAAlive && snakeBAlive) {
+        if (lenA > lenB) {
+          state.result = "Snake A wins by length";
+        } else if (lenB > lenA) {
+          state.result = "Snake B wins by length";
+        } else {
+          state.result = "Draw";
+        }
+      } else if (lenA > lenB) {
+        state.result = "Snake A wins by last greater length";
+      } else if (lenB > lenA) {
+        state.result = "Snake B wins by last greater length";
+      } else {
+        state.result = "Draw";
+      }
+
+      renderStatus();
+      pushLog(reason || `Battle finished. ${state.result}.`);
+    }
+
+    function turnDirection(direction, action) {
+      const currentIndex = TURN_ORDER.indexOf(direction);
+      if (action === "straight") {
+        return direction;
+      }
+      if (action === "left") {
+        return TURN_ORDER[(currentIndex + 3) % TURN_ORDER.length];
+      }
+      if (action === "right") {
+        return TURN_ORDER[(currentIndex + 1) % TURN_ORDER.length];
+      }
+      return direction;
+    }
+
+    function isInsideGrid(x, y) {
+      return x >= 0 && x < GRID_SIZE && y >= 0 && y < GRID_SIZE;
+    }
+
+    function isOccupiedBySnake(snake, x, y) {
+      return snake.body.some((segment) => segment.x === x && segment.y === y);
+    }
+
+    function normalizePattern(pattern) {
+      const normalized = Array.from({ length: VIEW_SIZE }, (_, row) =>
+        Array.from({ length: VIEW_SIZE }, (_, col) => {
+          if (row === VIEW_CENTER && col === VIEW_CENTER) {
+            return "head";
+          }
+          const value = pattern && pattern[row] && pattern[row][col];
+          return CELL_TYPES.includes(value) ? value : "any";
+        })
+      );
+      normalized[VIEW_CENTER][VIEW_CENTER] = "head";
+      return normalized;
+    }
+
+    function normalizeRule(rawRule, fallbackName) {
+      const action = ["left", "right", "straight"].includes(rawRule && rawRule.action)
+        ? rawRule.action
+        : "straight";
+      const name = rawRule && typeof rawRule.name === "string" && rawRule.name.trim()
+        ? rawRule.name.trim()
+        : fallbackName;
+      return createRule(name, action, normalizePattern(rawRule && rawRule.pattern));
+    }
+
+    function exportRulesJson() {
+      const payload = {
+        snakeA: state.rules.snakeA.map((rule) => ({
+          name: rule.name,
+          action: rule.action,
+          pattern: normalizePattern(rule.pattern)
+        })),
+        snakeB: state.rules.snakeB.map((rule) => ({
+          name: rule.name,
+          action: rule.action,
+          pattern: normalizePattern(rule.pattern)
+        }))
+      };
+      const json = JSON.stringify(payload, null, 2);
+      refs.jsonField.value = json;
+      pushLog("Behavior JSON exported.");
+    }
+
+    function importRulesJson() {
+      try {
+        const parsed = JSON.parse(refs.jsonField.value);
+        const snakeARules = Array.isArray(parsed.snakeA)
+          ? parsed.snakeA.map((rule, index) => normalizeRule(rule, `Snake A rule ${index + 1}`))
+          : [];
+        const snakeBRules = Array.isArray(parsed.snakeB)
+          ? parsed.snakeB.map((rule, index) => normalizeRule(rule, `Snake B rule ${index + 1}`))
+          : [];
+        state.rules.snakeA = snakeARules;
+        state.rules.snakeB = snakeBRules;
+        state.lastRule = { snakeA: "—", snakeB: "—" };
+        state.lastRuleIndex = { snakeA: -1, snakeB: -1 };
+        renderEditors();
+        pushLog("Behavior JSON imported.");
+      } catch (error) {
+        window.alert(`Invalid JSON: ${error.message}`);
+      }
+    }
+
+    function placeFood() {
+      const freeCells = [];
+      for (let y = 0; y < GRID_SIZE; y += 1) {
+        for (let x = 0; x < GRID_SIZE; x += 1) {
+          const occupied = SNAKE_KEYS.some((snakeKey) => {
+            const snake = state.snakes[snakeKey];
+            return snake.alive && isOccupiedBySnake(snake, x, y);
+          });
+          if (!occupied) {
+            freeCells.push({ x, y });
+          }
+        }
+      }
+      if (!freeCells.length) {
+        state.food = null;
+        return;
+      }
+      state.food = freeCells[Math.floor(Math.random() * freeCells.length)];
+    }
+
+    function getWorldPositionFromView(head, direction, relX, relY) {
+      switch (direction) {
+        case "up":
+          return { x: head.x + relX, y: head.y + relY };
+        case "right":
+          return { x: head.x - relY, y: head.y + relX };
+        case "down":
+          return { x: head.x - relX, y: head.y - relY };
+        case "left":
+          return { x: head.x + relY, y: head.y - relX };
+        default:
+          return { x: head.x + relX, y: head.y + relY };
+      }
+    }
+
+    function getVisibleToken(snakeKey, worldX, worldY) {
+      if (!isInsideGrid(worldX, worldY)) {
+        return "wall";
+      }
+
+      if (state.food && state.food.x === worldX && state.food.y === worldY) {
+        return "food";
+      }
+
+      const snake = state.snakes[snakeKey];
+      if (isOccupiedBySnake(snake, worldX, worldY)) {
+        return "self";
+      }
+
+      const enemyKey = snakeKey === "snakeA" ? "snakeB" : "snakeA";
+      const enemy = state.snakes[enemyKey];
+      if (enemy.alive && isOccupiedBySnake(enemy, worldX, worldY)) {
+        return "enemy";
+      }
+
+      return "empty";
+    }
+
+    function ruleMatches(snakeKey, rule) {
+      const snake = state.snakes[snakeKey];
+      const head = snake.body[0];
+
+      for (let row = 0; row < VIEW_SIZE; row += 1) {
+        for (let col = 0; col < VIEW_SIZE; col += 1) {
+          if (row === VIEW_CENTER && col === VIEW_CENTER) {
+            continue;
+          }
+          const required = rule.pattern[row][col];
+          if (required === "any") {
+            continue;
+          }
+          const relX = col - VIEW_CENTER;
+          const relY = row - VIEW_CENTER;
+          const world = getWorldPositionFromView(head, snake.direction, relX, relY);
+          const actual = getVisibleToken(snakeKey, world.x, world.y);
+          if (actual !== required) {
+            return false;
+          }
+        }
+      }
+      return true;
+    }
+
+    function evaluateRuleForSnake(snakeKey) {
+      const snake = state.snakes[snakeKey];
+      if (!snake.alive) {
+        return {
+          action: "straight",
+          direction: snake.direction,
+          ruleName: "dead",
+          ruleIndex: -1
+        };
+      }
+
+      for (let index = 0; index < state.rules[snakeKey].length; index += 1) {
+        const rule = state.rules[snakeKey][index];
+        if (ruleMatches(snakeKey, rule)) {
+          return {
+            action: rule.action,
+            direction: turnDirection(snake.direction, rule.action),
+            ruleName: rule.name,
+            ruleIndex: index
+          };
+        }
+      }
+
+      return {
+        action: "straight",
+        direction: snake.direction,
+        ruleName: "default straight",
+        ruleIndex: -1
+      };
+    }
+
+    function markSnakeDead(snakeKey, reason) {
+      const snake = state.snakes[snakeKey];
+      if (!snake.alive) {
+        return;
+      }
+      snake.alive = false;
+      pushLog(`${snake.label} ${reason}`);
+    }
+
+    function stepBattle(fromTimer = false) {
+      if (state.status === "finished") {
+        return;
+      }
+
+      if (fromTimer && state.status !== "running") {
+        return;
+      }
+
+      if (fromTimer && state.runEndsAt && Date.now() >= state.runEndsAt) {
+        state.remainingMs = 0;
+        renderAll();
+        finalizeBattle("Battle finished. Time expired.");
+        return;
+      }
+
+      const decisions = {};
+      const targets = {};
+
+      for (const snakeKey of SNAKE_KEYS) {
+        const snake = state.snakes[snakeKey];
+        if (!snake.alive) {
+          state.lastRule[snakeKey] = "dead";
+          state.lastRuleIndex[snakeKey] = -1;
+          continue;
+        }
+
+        const decision = evaluateRuleForSnake(snakeKey);
+        decisions[snakeKey] = decision;
+        state.lastRule[snakeKey] = decision.ruleName;
+        state.lastRuleIndex[snakeKey] = decision.ruleIndex;
+        if (decision.ruleIndex !== -1) {
+          pushLog(`${snake.label} used rule: ${decision.ruleName} → ${decision.action}`);
+        }
+        snake.direction = decision.direction;
+        const delta = DIRECTION_DELTAS[snake.direction];
+        targets[snakeKey] = {
+          x: snake.body[0].x + delta.x,
+          y: snake.body[0].y + delta.y
+        };
+      }
+
+      const snakeA = state.snakes.snakeA;
+      const snakeB = state.snakes.snakeB;
+      if (
+        snakeA.alive &&
+        snakeB.alive &&
+        targets.snakeA &&
+        targets.snakeB &&
+        (
+          (targets.snakeA.x === targets.snakeB.x && targets.snakeA.y === targets.snakeB.y) ||
+          (targets.snakeA.x === snakeB.body[0].x &&
+            targets.snakeA.y === snakeB.body[0].y &&
+            targets.snakeB.x === snakeA.body[0].x &&
+            targets.snakeB.y === snakeA.body[0].y)
+        )
+      ) {
+        markSnakeDead("snakeA", "died in a head-to-head collision.");
+        markSnakeDead("snakeB", "died in a head-to-head collision.");
+      }
+
+      for (const snakeKey of SNAKE_KEYS) {
+        const snake = state.snakes[snakeKey];
+        const target = targets[snakeKey];
+        if (!snake.alive || !target) {
+          continue;
+        }
+        if (!isInsideGrid(target.x, target.y)) {
+          markSnakeDead(snakeKey, "died by wall.");
+          continue;
+        }
+        const willGrow = state.food && target.x === state.food.x && target.y === state.food.y;
+        if (
+          snake.body.some((segment, index) => {
+            const isTail = index === snake.body.length - 1;
+            if (isTail && !willGrow) {
+              return false;
+            }
+            return segment.x === target.x && segment.y === target.y;
+          })
+        ) {
+          markSnakeDead(snakeKey, "died by self collision.");
+        }
+      }
+
+      const bitePlans = [];
+      for (const snakeKey of SNAKE_KEYS) {
+        const snake = state.snakes[snakeKey];
+        const target = targets[snakeKey];
+        if (!snake.alive || !target) {
+          continue;
+        }
+        const enemyKey = snakeKey === "snakeA" ? "snakeB" : "snakeA";
+        const enemy = state.snakes[enemyKey];
+        if (enemy.alive && enemy.body.some((segment) => segment.x === target.x && segment.y === target.y)) {
+          bitePlans.push({ attackerKey: snakeKey, enemyKey, target });
+        }
+      }
+
+      for (const plan of bitePlans) {
+        const enemy = state.snakes[plan.enemyKey];
+        if (!enemy.alive || enemy.body.length === 0) {
+          continue;
+        }
+        const tail = enemy.body[enemy.body.length - 1];
+        const tailWasTarget = tail && tail.x === plan.target.x && tail.y === plan.target.y;
+        enemy.body.pop();
+        pushLog(`${SNAKE_LABELS[plan.attackerKey]} bit ${enemy.label}.`);
+        if (enemy.body.length === 0) {
+          enemy.alive = false;
+          pushLog(`${enemy.label} was bitten down to zero length.`);
+        } else if (tailWasTarget) {
+          pushLog(`${SNAKE_LABELS[plan.attackerKey]} cleared the bitten tail cell.`);
+        }
+      }
+
+      for (const snakeKey of SNAKE_KEYS) {
+        const snake = state.snakes[snakeKey];
+        const target = targets[snakeKey];
+        if (!snake.alive || !target) {
+          continue;
+        }
+        const enemyKey = snakeKey === "snakeA" ? "snakeB" : "snakeA";
+        const enemy = state.snakes[enemyKey];
+        if (enemy.alive && enemy.body.some((segment) => segment.x === target.x && segment.y === target.y)) {
+          markSnakeDead(snakeKey, `died after biting into ${enemy.label}'s body.`);
+        }
+      }
+
+      for (const snakeKey of SNAKE_KEYS) {
+        const snake = state.snakes[snakeKey];
+        const target = targets[snakeKey];
+        if (!snake.alive || !target) {
+          continue;
+        }
+        snake.body.unshift(target);
+        const ateFood = state.food && target.x === state.food.x && target.y === state.food.y;
+        if (ateFood) {
+          pushLog(`${snake.label} ate food.`);
+          state.food = null;
+        } else {
+          snake.body.pop();
+        }
+      }
+
+      if (!state.food) {
+        placeFood();
+      }
+
+      if (fromTimer && state.runEndsAt) {
+        state.remainingMs = Math.max(0, state.runEndsAt - Date.now());
+      } else {
+        state.remainingMs = Math.max(0, state.remainingMs - TICK_MS);
+      }
+      if (state.remainingMs <= 0) {
+        state.remainingMs = 0;
+        renderAll();
+        finalizeBattle("Battle finished. Time expired.");
+        return;
+      }
+
+      const livingSnakes = SNAKE_KEYS.filter((snakeKey) => state.snakes[snakeKey].alive);
+      renderAll();
+      if (livingSnakes.length <= 1) {
+        finalizeBattle("Battle finished.");
+      }
+    }
+
+    function moveRule(snakeKey, ruleId, direction) {
+      const rules = state.rules[snakeKey];
+      const index = rules.findIndex((rule) => rule.id === ruleId);
+      if (index === -1) {
+        return;
+      }
+      const targetIndex = direction === "up" ? index - 1 : index + 1;
+      if (targetIndex < 0 || targetIndex >= rules.length) {
+        return;
+      }
+      [rules[index], rules[targetIndex]] = [rules[targetIndex], rules[index]];
+      renderEditors();
+    }
+
+    function cyclePatternCell(snakeKey, ruleId, row, col) {
+      if (row === VIEW_CENTER && col === VIEW_CENTER) {
+        return;
+      }
+      const rule = state.rules[snakeKey].find((candidate) => candidate.id === ruleId);
+      if (!rule) {
+        return;
+      }
+      const current = rule.pattern[row][col];
+      const nextIndex = (CELL_TYPES.indexOf(current) + 1) % CELL_TYPES.length;
+      rule.pattern[row][col] = CELL_TYPES[nextIndex];
+      renderEditors();
+    }
+
+    function addRule(snakeKey) {
+      state.rules[snakeKey].push(createRule(`${SNAKE_LABELS[snakeKey]} rule ${state.rules[snakeKey].length + 1}`, "straight"));
+      renderEditors();
+    }
+
+    function deleteRule(snakeKey, ruleId) {
+      state.rules[snakeKey] = state.rules[snakeKey].filter((rule) => rule.id !== ruleId);
+      renderEditors();
+    }
+
+    function bindEditorEvents(container, snakeKey) {
+      container.addEventListener("click", (event) => {
+        const addButton = event.target.closest("[data-add-rule]");
+        if (addButton) {
+          addRule(snakeKey);
+          return;
+        }
+
+        const card = event.target.closest(".rule-card");
+        if (!card) {
+          return;
+        }
+        const ruleId = card.dataset.ruleId;
+
+        const deleteButton = event.target.closest("[data-delete-rule]");
+        if (deleteButton) {
+          deleteRule(snakeKey, ruleId);
+          return;
+        }
+
+        const moveButton = event.target.closest("[data-move]");
+        if (moveButton) {
+          moveRule(snakeKey, ruleId, moveButton.dataset.move);
+          return;
+        }
+
+        const patternButton = event.target.closest(".pattern-cell");
+        if (patternButton) {
+          cyclePatternCell(
+            snakeKey,
+            ruleId,
+            Number(patternButton.dataset.patternRow),
+            Number(patternButton.dataset.patternCol)
+          );
+        }
+      });
+
+      container.addEventListener("input", (event) => {
+        const card = event.target.closest(".rule-card");
+        if (!card) {
+          return;
+        }
+        const rule = state.rules[snakeKey].find((candidate) => candidate.id === card.dataset.ruleId);
+        if (!rule) {
+          return;
+        }
+        if (event.target.dataset.field === "name") {
+          rule.name = event.target.value || DEFAULT_RULE_NAME;
+        }
+      });
+
+      container.addEventListener("change", (event) => {
+        const card = event.target.closest(".rule-card");
+        if (!card) {
+          return;
+        }
+        const rule = state.rules[snakeKey].find((candidate) => candidate.id === card.dataset.ruleId);
+        if (!rule) {
+          return;
+        }
+        if (event.target.dataset.field === "action") {
+          rule.action = event.target.value;
+        }
+      });
+    }
+
+    function wireControls() {
+      refs.startButton.addEventListener("click", startBattle);
+      refs.pauseButton.addEventListener("click", () => pauseBattle(true));
+      refs.resetButton.addEventListener("click", () => resetBattleState(true));
+      refs.stepButton.addEventListener("click", () => {
+        if (state.status === "running") {
+          pauseBattle(false);
+        }
+        if (state.status !== "finished") {
+          stepBattle();
+        }
+      });
+      refs.exportButton.addEventListener("click", exportRulesJson);
+      refs.importButton.addEventListener("click", importRulesJson);
+      bindEditorEvents(document.querySelector(".snake-editor.snake-a"), "snakeA");
+      bindEditorEvents(document.querySelector(".snake-editor.snake-b"), "snakeB");
+    }
+
+    resetRulesToDefaults();
+    wireControls();
+    resetBattleState(true);
+    exportRulesJson();
+  </script>
+</body>
+</html>
