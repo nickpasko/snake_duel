@@ -588,12 +588,11 @@
       return Math.floor(Math.random() * (max - min + 1)) + min;
     }
 
-    function buildSnakeBodyFromHead(head, direction, length) {
-      const segmentCount = length || 3;
+    function buildSnakeBodyFromHead(head, direction, length = 3) {
       const opposite = { up: "down", down: "up", left: "right", right: "left" };
       const delta = DIRECTION_DELTAS[opposite[direction]];
       const body = [];
-      for (let i = 0; i < segmentCount; i += 1) {
+      for (let i = 0; i < length; i += 1) {
         body.push({ x: head.x + delta.x * i, y: head.y + delta.y * i });
       }
       return body;
@@ -613,12 +612,12 @@
       const xMin = half === "left" ? 0 : Math.ceil(GRID_SIZE / 2);
       const xMax = half === "left" ? Math.floor(GRID_SIZE / 2) - 1 : GRID_SIZE - 1;
       for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
-        const direction = TURN_ORDER[getRandomInt(0, TURN_ORDER.length - 1)];
+        const randomDirection = TURN_ORDER[getRandomInt(0, TURN_ORDER.length - 1)];
         const head = { x: getRandomInt(xMin, xMax), y: getRandomInt(0, GRID_SIZE - 1) };
-        const body = buildSnakeBodyFromHead(head, direction, SNAKE_LENGTH);
+        const body = buildSnakeBodyFromHead(head, randomDirection, SNAKE_LENGTH);
         const bodyInHalf = body.every((seg) => seg.x >= xMin && seg.x <= xMax);
         if (isBodyInsideGrid(body) && bodyInHalf) {
-          return { direction, body };
+          return { direction: randomDirection, body };
         }
       }
       return null;
@@ -628,11 +627,11 @@
       const MAX_ATTEMPTS = 20;
       const fallbackA = {
         key: "snakeA", label: SNAKE_LABELS["snakeA"], alive: true, direction: "right",
-        body: [{ x: 2, y: 6 }, { x: 1, y: 6 }, { x: 0, y: 6 }]
+        body: buildSnakeBodyFromHead({ x: 2, y: 6 }, "right")
       };
       const fallbackB = {
         key: "snakeB", label: SNAKE_LABELS["snakeB"], alive: true, direction: "left",
-        body: [{ x: 10, y: 6 }, { x: 11, y: 6 }, { x: 12, y: 6 }]
+        body: buildSnakeBodyFromHead({ x: 10, y: 6 }, "left")
       };
       for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
         const spawnA = createRandomSpawnForHalf("left");
