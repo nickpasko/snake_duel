@@ -1128,7 +1128,7 @@
         const old = state.food;
         state.food = null;
         state.foodSpawnedAt = null;
-        pushLog(`Food at (${old.x}, ${old.y}) expired after 20s.`);
+        pushLog(`Food at (${old.x}, ${old.y}) expired after ${FOOD_LIFETIME_MS / 1000}s.`);
         placeFood();
         if (state.food) {
           pushLog(`New food appeared at (${state.food.x}, ${state.food.y}).`);
