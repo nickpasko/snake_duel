@@ -794,7 +794,7 @@
           row
             .map((cell, colIndex) => {
               const disabled = rowIndex === VIEW_CENTER && colIndex === VIEW_CENTER;
-              const cellClass = cell.replace(/[A-Z]/g, (character) => `-${character.toLowerCase()}`);
+              const cellClass = cell.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
               return `
                 <button
                   type="button"
