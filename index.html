@@ -24,6 +24,7 @@
       --wall: #475569;
       --self: #38bdf8;
       --enemy: #f472b6;
+      --enemy-head: #f9a8d4;
     }
 
     * {
@@ -306,6 +307,11 @@
       background: var(--enemy);
     }
 
+    .pattern-cell.enemy-head {
+      background: var(--enemy-head);
+      color: #4a044e;
+    }
+
     .pattern-cell.food {
       background: var(--food);
     }
@@ -450,6 +456,7 @@
           <span>EMPTY</span>
           <span>SELF</span>
           <span>ENEMY</span>
+          <span>ENEMY HEAD</span>
           <span>FOOD</span>
           <span>WALL</span>
           <span>HEAD (fixed center)</span>
@@ -478,7 +485,7 @@
     const FOOD_LIFETIME_MS = 20000; // Food expires after 20 seconds
     const MAX_EVENT_LOG_ENTRIES = 80; // Keep enough context without letting the log grow indefinitely.
     const DEFAULT_RULE_NAME = "Unnamed rule";
-    const CELL_TYPES = ["any", "empty", "self", "enemy", "food", "wall"];
+    const CELL_TYPES = ["any", "empty", "self", "enemy", "enemyHead", "food", "wall"];
     const TURN_ORDER = ["up", "right", "down", "left"];
     const DIRECTION_DELTAS = {
       up: { x: 0, y: -1 },
@@ -496,6 +503,7 @@
       empty: "EMP",
       self: "SELF",
       enemy: "ENMY",
+      enemyHead: "EHEAD",
       food: "FOOD",
       wall: "WALL",
       head: "HEAD"
@@ -786,10 +794,11 @@
           row
             .map((cell, colIndex) => {
               const disabled = rowIndex === VIEW_CENTER && colIndex === VIEW_CENTER;
+              const cellClass = cell.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
               return `
                 <button
                   type="button"
-                  class="pattern-cell ${cell}"
+                  class="pattern-cell ${cellClass}"
                   data-pattern-row="${rowIndex}"
                   data-pattern-col="${colIndex}"
                   title="${cell}"
@@ -1050,6 +1059,15 @@
 
       const enemyKey = snakeKey === "snakeA" ? "snakeB" : "snakeA";
       const enemy = state.snakes[enemyKey];
+      if (
+        enemy.alive &&
+        enemy.body.length &&
+        enemy.body[0].x === worldX &&
+        enemy.body[0].y === worldY
+      ) {
+        return "enemyHead";
+      }
+
       if (enemy.alive && isOccupiedBySnake(enemy, worldX, worldY)) {
         return "enemy";
       }
