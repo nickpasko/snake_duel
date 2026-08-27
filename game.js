@@ -1048,6 +1048,7 @@ function markSnakeDead(snakeKey, logKey) {
     return;
   }
   snake.alive = false;
+  playDeathSound();
   pushLog(logKey, { label: snakeLabel(snakeKey) });
 }
 
@@ -1084,6 +1085,7 @@ function stepBattle(fromTimer = false) {
       finalizeMission(diedThisTick ? "died" : "timeExpired");
     } else {
       finalizeBattle("battleFinishedTimeExpired");
+      playBattleEndSound();
     }
     return;
   }
@@ -1135,6 +1137,7 @@ function stepBattle(fromTimer = false) {
   ) {
     snakeA.alive = false;
     snakeB.alive = false;
+    playDeathSound();
     pushLog("headCollision");
   }
 
@@ -1192,6 +1195,7 @@ function stepBattle(fromTimer = false) {
   }
 
   for (const plan of bitePlans) {
+    playBiteSound();
     pushLog("bite", {
       attackerLabel: snakeLabel(plan.attackerKey),
       enemyLabel: snakeLabel(plan.enemyKey),
@@ -1208,6 +1212,7 @@ function stepBattle(fromTimer = false) {
     snake.body = snake.body.filter((_, index) => !biteRemovals[snakeKey].has(index));
     if (snake.body.length < 2) {
       snake.alive = false;
+      playDeathSound();
       pushLog("diedBiteLengthDrop", { label: snakeLabel(snakeKey) });
     }
   }
@@ -1221,6 +1226,7 @@ function stepBattle(fromTimer = false) {
     snake.body.unshift(target);
     const ateFood = state.food && target.x === state.food.x && target.y === state.food.y;
     if (ateFood) {
+      playFoodEatenSound();
       pushLog("ateFood", { label: snakeLabel(snakeKey) });
       state.food = null;
     } else if (!biters.has(snakeKey)) {
@@ -1236,6 +1242,7 @@ function stepBattle(fromTimer = false) {
     const snake = state.snakes[snakeKey];
     if (snake.alive && snake.body.length < 2) {
       snake.alive = false;
+      playDeathSound();
       pushLog("diedBiteLengthDrop", { label: snakeLabel(snakeKey) });
     }
   }
@@ -1254,6 +1261,7 @@ function stepBattle(fromTimer = false) {
       finalizeMission(diedThisTick ? "died" : "timeExpired");
     } else {
       finalizeBattle("battleFinishedTimeExpired");
+      playBattleEndSound();
     }
     return;
   }
@@ -1282,6 +1290,7 @@ function stepBattle(fromTimer = false) {
     const livingSnakes = SNAKE_KEYS.filter((snakeKey) => state.snakes[snakeKey].alive);
     if (livingSnakes.length <= 1) {
       finalizeBattle("battleFinishedPlain");
+      playBattleEndSound();
     }
   }
 }
@@ -1331,18 +1340,21 @@ function bindEditorEvents(editor) {
   root.addEventListener("click", (event) => {
     const addButton = event.target.closest("[data-add-rule]");
     if (addButton) {
+      playEditorClickSound();
       addRule(snakeKey);
       return;
     }
 
     const saveButton = event.target.closest("[data-save-script]");
     if (saveButton) {
+      playEditorClickSound();
       saveScript(editor);
       return;
     }
 
     const loadButton = event.target.closest("[data-load-script]");
     if (loadButton) {
+      playEditorClickSound();
       loadFileInput.click();
       return;
     }
@@ -1355,16 +1367,20 @@ function bindEditorEvents(editor) {
 
     const deleteButton = event.target.closest("[data-delete-rule]");
     if (deleteButton) {
+      playEditorClickSound();
       deleteRule(snakeKey, ruleId);
       return;
     }
 
     const moveButton = event.target.closest("[data-move]");
     if (moveButton) {
+      playEditorClickSound();
       moveRule(snakeKey, ruleId, moveButton.dataset.move);
       return;
     }
 
+    // Pattern-cell cycling is intentionally silent — it's clicked dozens of times in quick
+    // succession while authoring a single rule's 7x7 grid, where a sound per click would grate.
     const patternButton = event.target.closest(".pattern-cell");
     if (patternButton) {
       cyclePatternCell(
@@ -1542,6 +1558,9 @@ function finalizeMission(reasonKey) {
   pushLog(won ? "missionCompleted" : "missionFailed", { missionName });
   if (won) {
     markMissionComplete(state.mission.id);
+    playWinSound();
+  } else {
+    playLoseSound();
   }
   showMissionBanner(won);
 }
@@ -1554,12 +1573,14 @@ function handleResetClick() {
   }
 }
 
+// ===== Sound effects (synthesized via Web Audio API — no audio assets needed) =====
+
 let audioContext = null;
 
-function playClickSound() {
+function getAudioContext() {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   if (!AudioContextClass) {
-    return;
+    return null;
   }
   if (!audioContext) {
     audioContext = new AudioContextClass();
@@ -1567,19 +1588,121 @@ function playClickSound() {
   if (audioContext.state === "suspended") {
     audioContext.resume();
   }
-  const now = audioContext.currentTime;
-  const oscillator = audioContext.createOscillator();
-  const gainNode = audioContext.createGain();
-  oscillator.type = "triangle";
-  oscillator.frequency.setValueAtTime(720, now);
-  oscillator.frequency.exponentialRampToValueAtTime(280, now + 0.09);
-  gainNode.gain.setValueAtTime(0.0001, now);
-  gainNode.gain.exponentialRampToValueAtTime(0.18, now + 0.008);
-  gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.11);
+  return audioContext;
+}
+
+function playTone(ctx, { frequency, frequencyEnd, startTime, duration, type = "triangle", peakGain = 0.2 }) {
+  const oscillator = ctx.createOscillator();
+  const gainNode = ctx.createGain();
+  oscillator.type = type;
+  oscillator.frequency.setValueAtTime(frequency, startTime);
+  if (frequencyEnd) {
+    oscillator.frequency.exponentialRampToValueAtTime(frequencyEnd, startTime + duration);
+  }
+  gainNode.gain.setValueAtTime(0.0001, startTime);
+  gainNode.gain.exponentialRampToValueAtTime(peakGain, startTime + Math.min(0.015, duration * 0.3));
+  gainNode.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
   oscillator.connect(gainNode);
-  gainNode.connect(audioContext.destination);
-  oscillator.start(now);
-  oscillator.stop(now + 0.12);
+  gainNode.connect(ctx.destination);
+  oscillator.start(startTime);
+  oscillator.stop(startTime + duration + 0.02);
+}
+
+function playNoiseBurst(ctx, { startTime, duration, peakGain = 0.3, filterType = "lowpass", filterFrequency = 1200, filterFrequencyEnd }) {
+  const bufferSize = Math.max(1, Math.floor(ctx.sampleRate * duration));
+  const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < bufferSize; i += 1) {
+    data[i] = Math.random() * 2 - 1;
+  }
+  const noiseSource = ctx.createBufferSource();
+  noiseSource.buffer = buffer;
+  const filter = ctx.createBiquadFilter();
+  filter.type = filterType;
+  filter.frequency.setValueAtTime(filterFrequency, startTime);
+  if (filterFrequencyEnd) {
+    filter.frequency.exponentialRampToValueAtTime(filterFrequencyEnd, startTime + duration);
+  }
+  const gainNode = ctx.createGain();
+  gainNode.gain.setValueAtTime(0.0001, startTime);
+  gainNode.gain.exponentialRampToValueAtTime(peakGain, startTime + 0.008);
+  gainNode.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+  noiseSource.connect(filter);
+  filter.connect(gainNode);
+  gainNode.connect(ctx.destination);
+  noiseSource.start(startTime);
+  noiseSource.stop(startTime + duration + 0.02);
+}
+
+function playMenuClickSound() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  [523.25, 659.25, 783.99].forEach((frequency, i) => {
+    playTone(ctx, { frequency, startTime: now + i * 0.06, duration: 0.14, type: "square", peakGain: 0.12 });
+  });
+}
+
+function playEditorClickSound() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  playTone(ctx, { frequency: 220, frequencyEnd: 90, startTime: now, duration: 0.09, type: "sine", peakGain: 0.16 });
+}
+
+function playDeathSound() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  playNoiseBurst(ctx, { startTime: now, duration: 0.35, peakGain: 0.32, filterType: "lowpass", filterFrequency: 3000, filterFrequencyEnd: 300 });
+  playTone(ctx, { frequency: 140, frequencyEnd: 40, startTime: now, duration: 0.4, type: "sawtooth", peakGain: 0.22 });
+}
+
+function playWinSound() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  const melody = [523.25, 659.25, 783.99, 1046.5]; // C5 E5 G5 C6
+  melody.forEach((frequency, i) => {
+    const startTime = now + i * 0.12;
+    playTone(ctx, { frequency, startTime, duration: 0.3, type: "square", peakGain: 0.16 });
+    playTone(ctx, { frequency: frequency * 1.5, startTime, duration: 0.3, type: "triangle", peakGain: 0.08 });
+  });
+  const chordStart = now + melody.length * 0.12;
+  [1046.5, 1318.51, 1567.98].forEach((frequency) => {
+    playTone(ctx, { frequency, startTime: chordStart, duration: 0.55, type: "square", peakGain: 0.13 });
+  });
+}
+
+function playLoseSound() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  const melody = [196.0, 185.0, 164.81, 146.83]; // G3, F#3, E3, D3 — slow descending, funeral-march-like
+  melody.forEach((frequency, i) => {
+    playTone(ctx, { frequency, startTime: now + i * 0.42, duration: 0.5, type: "triangle", peakGain: 0.15 });
+  });
+}
+
+function playFoodEatenSound() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  playTone(ctx, { frequency: 500, frequencyEnd: 150, startTime: now, duration: 0.16, type: "sine", peakGain: 0.2 });
+}
+
+function playBiteSound() {
+  const ctx = getAudioContext();
+  if (!ctx) return;
+  const now = ctx.currentTime;
+  playNoiseBurst(ctx, { startTime: now, duration: 0.12, peakGain: 0.3, filterType: "bandpass", filterFrequency: 2000 });
+  playTone(ctx, { frequency: 180, frequencyEnd: 90, startTime: now, duration: 0.1, type: "square", peakGain: 0.15 });
+}
+
+function playBattleEndSound() {
+  if (state.result.key !== "draw") {
+    playWinSound();
+  }
 }
 
 function wireControls() {
@@ -1588,7 +1711,7 @@ function wireControls() {
   });
 
   refs.menuMultiplayerButton.addEventListener("click", () => {
-    playClickSound();
+    playMenuClickSound();
     state.mode = "duel";
     state.mission = null;
     resetBattleState(true);
@@ -1596,7 +1719,7 @@ function wireControls() {
   });
 
   refs.menuSinglePlayerButton.addEventListener("click", () => {
-    playClickSound();
+    playMenuClickSound();
     renderMissionSelect();
     showScreen("missionSelect");
   });
