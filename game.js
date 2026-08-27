@@ -1416,6 +1416,7 @@ function bindEditorEvents(editor) {
       return;
     }
     if (event.target.dataset.field === "action") {
+      playEditorClickSound();
       rule.action = event.target.value;
     }
   });
@@ -1707,6 +1708,7 @@ function playBattleEndSound() {
 
 function wireControls() {
   refs.languageSelect.addEventListener("change", (event) => {
+    playMenuClickSound();
     setLanguage(event.target.value);
   });
 
@@ -1724,20 +1726,31 @@ function wireControls() {
     showScreen("missionSelect");
   });
 
-  refs.missionSelectBackButton.addEventListener("click", () => showScreen("menu"));
+  refs.missionSelectBackButton.addEventListener("click", () => {
+    playMenuClickSound();
+    showScreen("menu");
+  });
 
   refs.missionGrid.addEventListener("click", (event) => {
     const card = event.target.closest(".mission-card");
     if (!card || card.disabled) {
       return;
     }
+    playMenuClickSound();
     startMission(card.dataset.missionId);
   });
 
-  refs.missionPlayBackButton.addEventListener("click", () => showScreen("missionSelect"));
+  refs.missionPlayBackButton.addEventListener("click", () => {
+    playMenuClickSound();
+    showScreen("missionSelect");
+  });
 
-  refs.missionRetryButton.addEventListener("click", () => startMission(state.mission.id));
+  refs.missionRetryButton.addEventListener("click", () => {
+    playMenuClickSound();
+    startMission(state.mission.id);
+  });
   refs.missionNextButton.addEventListener("click", () => {
+    playMenuClickSound();
     const currentIndex = MISSIONS.findIndex((m) => m.id === state.mission.id);
     const next = MISSIONS[currentIndex + 1];
     if (next) {
@@ -1747,13 +1760,26 @@ function wireControls() {
       showScreen("missionSelect");
     }
   });
-  refs.missionBannerBackButton.addEventListener("click", () => showScreen("menu"));
+  refs.missionBannerBackButton.addEventListener("click", () => {
+    playMenuClickSound();
+    showScreen("menu");
+  });
 
   for (const view of Object.values(views)) {
-    view.startButton.addEventListener("click", startBattle);
-    view.pauseButton.addEventListener("click", () => pauseBattle(true));
-    view.resetButton.addEventListener("click", handleResetClick);
+    view.startButton.addEventListener("click", () => {
+      playMenuClickSound();
+      startBattle();
+    });
+    view.pauseButton.addEventListener("click", () => {
+      playMenuClickSound();
+      pauseBattle(true);
+    });
+    view.resetButton.addEventListener("click", () => {
+      playMenuClickSound();
+      handleResetClick();
+    });
     view.stepButton.addEventListener("click", () => {
+      playMenuClickSound();
       if (state.status === "running") {
         pauseBattle(false);
       }
