@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Snake Duel Arena</title>
+  <script src="https://yandex.ru/games/sdk/v2"></script>
   <style>
     :root {
       color-scheme: dark;
@@ -102,6 +103,16 @@
       max-width: 760px;
       color: var(--muted);
       line-height: 1.45;
+    }
+
+    .lang-switcher {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .lang-switcher select {
+      padding: 0.4rem 0.6rem;
     }
 
     .layout {
@@ -393,58 +404,65 @@
   <div class="page">
     <section class="hero">
       <div>
-        <h1>Snake Duel Arena</h1>
-        <p>
+        <h1 data-i18n="heroTitle">Snake Duel Arena</h1>
+        <p data-i18n="heroText">
           You do not steer the snakes directly. Instead, you author their instincts:
           each snake scans a 5×5 view around its head, matches the first visual rule,
           and turns left, right, or continues straight.
         </p>
+      </div>
+      <div class="lang-switcher">
+        <label for="languageSelect" data-i18n="languageLabel">Language</label>
+        <select id="languageSelect" aria-label="Language selector">
+          <option value="ru">Русский</option>
+          <option value="en">English</option>
+        </select>
       </div>
     </section>
 
     <section class="layout">
       <div class="panel">
         <div class="controls">
-          <button id="startButton">Start</button>
-          <button id="pauseButton">Pause</button>
-          <button id="resetButton">Reset</button>
-          <button id="stepButton">Step</button>
+          <button id="startButton" data-i18n="start">Start</button>
+          <button id="pauseButton" data-i18n="pause">Pause</button>
+          <button id="resetButton" data-i18n="reset">Reset</button>
+          <button id="stepButton" data-i18n="step">Step</button>
         </div>
 
         <div class="status-grid">
-          <div class="status-card"><small>Timer</small><strong id="timerValue">—</strong></div>
-          <div class="status-card"><small>Status</small><strong id="statusValue">—</strong></div>
-          <div class="status-card"><small>Snake A length</small><strong id="lengthAValue">—</strong></div>
-          <div class="status-card"><small>Snake B length</small><strong id="lengthBValue">—</strong></div>
-          <div class="status-card"><small>Snake A last rule</small><strong id="lastRuleAValue">—</strong></div>
-          <div class="status-card"><small>Snake B last rule</small><strong id="lastRuleBValue">—</strong></div>
-          <div class="status-card" style="grid-column: 1 / -1;"><small>Battle result</small><strong id="resultValue">In progress</strong></div>
+          <div class="status-card"><small data-i18n="timerLabel">Timer</small><strong id="timerValue">—</strong></div>
+          <div class="status-card"><small data-i18n="statusLabel">Status</small><strong id="statusValue">—</strong></div>
+          <div class="status-card"><small data-i18n="lengthALabel">Snake A length</small><strong id="lengthAValue">—</strong></div>
+          <div class="status-card"><small data-i18n="lengthBLabel">Snake B length</small><strong id="lengthBValue">—</strong></div>
+          <div class="status-card"><small data-i18n="lastRuleALabel">Snake A last rule</small><strong id="lastRuleAValue">—</strong></div>
+          <div class="status-card"><small data-i18n="lastRuleBLabel">Snake B last rule</small><strong id="lastRuleBValue">—</strong></div>
+          <div class="status-card" style="grid-column: 1 / -1;"><small data-i18n="battleResultLabel">Battle result</small><strong id="resultValue">In progress</strong></div>
         </div>
 
-        <div id="arena" class="arena" aria-label="Snake duel arena"></div>
+        <div id="arena" class="arena" data-i18n-aria="arenaAriaLabel" aria-label="Snake duel arena"></div>
       </div>
 
       <div class="panel">
         <div class="editor-grid">
           <section class="snake-editor snake-a">
-            <h2>Snake A</h2>
+            <h2 data-i18n="snakeLabel.snakeA">Snake A</h2>
             <div class="editor-toolbar">
-              <button data-add-rule="snakeA">Add rule</button>
-              <input type="text" id="scriptNameA" class="script-name-input" value="Snake A" aria-label="Script name for Snake A">
-              <button data-save-script="snakeA">Save script</button>
-              <button data-load-script="snakeA">Load script</button>
+              <button data-add-rule="snakeA" data-i18n="addRule">Add rule</button>
+              <input type="text" id="scriptNameA" class="script-name-input" value="Snake A" data-i18n-aria="scriptNameAriaA" aria-label="Script name for Snake A">
+              <button data-save-script="snakeA" data-i18n="saveScript">Save script</button>
+              <button data-load-script="snakeA" data-i18n="loadScript">Load script</button>
               <input type="file" id="loadFileA" accept=".json" hidden>
             </div>
             <div id="rulesSnakeA" class="rules"></div>
           </section>
 
           <section class="snake-editor snake-b">
-            <h2>Snake B</h2>
+            <h2 data-i18n="snakeLabel.snakeB">Snake B</h2>
             <div class="editor-toolbar">
-              <button data-add-rule="snakeB">Add rule</button>
-              <input type="text" id="scriptNameB" class="script-name-input" value="Snake B" aria-label="Script name for Snake B">
-              <button data-save-script="snakeB">Save script</button>
-              <button data-load-script="snakeB">Load script</button>
+              <button data-add-rule="snakeB" data-i18n="addRule">Add rule</button>
+              <input type="text" id="scriptNameB" class="script-name-input" value="Snake B" data-i18n-aria="scriptNameAriaB" aria-label="Script name for Snake B">
+              <button data-save-script="snakeB" data-i18n="saveScript">Save script</button>
+              <button data-load-script="snakeB" data-i18n="loadScript">Load script</button>
               <input type="file" id="loadFileB" accept=".json" hidden>
             </div>
             <div id="rulesSnakeB" class="rules"></div>
@@ -452,20 +470,20 @@
         </div>
 
         <div class="legend">
-          <span>ANY</span>
-          <span>EMPTY</span>
-          <span>SELF</span>
-          <span>ENEMY</span>
-          <span>ENEMY HEAD</span>
-          <span>FOOD</span>
-          <span>WALL</span>
-          <span>HEAD (fixed center)</span>
+          <span data-legend="any">ANY</span>
+          <span data-legend="empty">EMPTY</span>
+          <span data-legend="self">SELF</span>
+          <span data-legend="enemy">ENEMY</span>
+          <span data-legend="enemyHead">ENEMY HEAD</span>
+          <span data-legend="food">FOOD</span>
+          <span data-legend="wall">WALL</span>
+          <span data-legend="head">HEAD (fixed center)</span>
         </div>
 
         <div class="json-log-grid">
           <section>
-            <h3>Battle log</h3>
-            <p class="helper">
+            <h3 data-i18n="battleLogHeading">Battle log</h3>
+            <p class="helper" data-i18n="battleLogHelper">
               The event log explains which rule fired, when food was eaten, who bit whom,
               and how the duel ended.
             </p>
@@ -484,7 +502,6 @@
     const TICK_MS = 350;
     const FOOD_LIFETIME_MS = 20000; // Food expires after 20 seconds
     const MAX_EVENT_LOG_ENTRIES = 80; // Keep enough context without letting the log grow indefinitely.
-    const DEFAULT_RULE_NAME = "Unnamed rule";
     const CELL_TYPES = ["any", "empty", "self", "enemy", "enemyHead", "food", "wall"];
     const TURN_ORDER = ["up", "right", "down", "left"];
     const DIRECTION_DELTAS = {
@@ -494,20 +511,243 @@
       left: { x: -1, y: 0 }
     };
     const SNAKE_KEYS = ["snakeA", "snakeB"];
-    const SNAKE_LABELS = {
-      snakeA: "Snake A",
-      snakeB: "Snake B"
+
+    const LAST_RULE_NONE = "__none__";
+    const LAST_RULE_DEAD = "__dead__";
+    const LAST_RULE_DEFAULT = "__default__";
+    const LANG_STORAGE_KEY = "snakeDuelLang";
+
+    const STRINGS = {
+      en: {
+        pageTitle: "Snake Duel Arena",
+        heroTitle: "Snake Duel Arena",
+        heroText: "You do not steer the snakes directly. Instead, you author their instincts: each snake scans a 5×5 view around its head, matches the first visual rule, and turns left, right, or continues straight.",
+        languageLabel: "Language",
+        start: "Start",
+        pause: "Pause",
+        reset: "Reset",
+        step: "Step",
+        timerLabel: "Timer",
+        statusLabel: "Status",
+        lengthALabel: "Snake A length",
+        lengthBLabel: "Snake B length",
+        lastRuleALabel: "Snake A last rule",
+        lastRuleBLabel: "Snake B last rule",
+        battleResultLabel: "Battle result",
+        arenaAriaLabel: "Snake duel arena",
+        addRule: "Add rule",
+        saveScript: "Save script",
+        loadScript: "Load script",
+        scriptNameAriaA: "Script name for Snake A",
+        scriptNameAriaB: "Script name for Snake B",
+        actionLabelText: "Action",
+        firstMatchWins: "First matching rule wins.",
+        noRulesYet: "No rules yet. Add one to define this snake's instincts.",
+        battleLogHeading: "Battle log",
+        battleLogHelper: "The event log explains which rule fired, when food was eaten, who bit whom, and how the duel ended.",
+        noEventsYet: "No events yet.",
+        unnamedRule: "Unnamed rule",
+        ruleWord: "rule",
+        deleteRule: "Delete",
+        ruleNameAria: ({ label }) => `${label} rule name`,
+        actionAria: ({ label }) => `${label} rule action`,
+        snakeLabel: { snakeA: "Snake A", snakeB: "Snake B" },
+        legend: {
+          any: "ANY",
+          empty: "EMPTY",
+          self: "SELF",
+          enemy: "ENEMY",
+          enemyHead: "ENEMY HEAD",
+          food: "FOOD",
+          wall: "WALL",
+          head: "HEAD (fixed center)"
+        },
+        pattern: {
+          any: "ANY",
+          empty: "EMP",
+          self: "SELF",
+          enemy: "ENMY",
+          enemyHead: "EHEAD",
+          food: "FOOD",
+          wall: "WALL",
+          head: "HEAD"
+        },
+        action: { left: "left", straight: "straight", right: "right" },
+        status: { paused: "paused", running: "running", finished: "finished" },
+        lastRuleNone: "—",
+        lastRuleDead: "dead",
+        lastRuleDefault: "default straight",
+        demoRuleTurnFoodLeft: ({ label }) => `${label}: turn to food on the left`,
+        demoRuleTurnFoodRight: ({ label }) => `${label}: turn to food on the right`,
+        demoRuleAvoidWall: ({ label }) => `${label}: avoid wall ahead`,
+        resultMsgs: {
+          inProgress: () => "In progress",
+          winsAlive: ({ label }) => `${label} wins`,
+          winsByLength: ({ label }) => `${label} wins by length`,
+          draw: () => "Draw",
+          winsByLastGreaterLength: ({ label }) => `${label} wins by last greater length`
+        },
+        log: {
+          reset: () => "Battle reset.",
+          started: () => "Battle started.",
+          pausedLog: () => "Battle paused.",
+          ruleUsed: ({ label, ruleName, actionText }) => `${label} used rule: ${ruleName} → ${actionText}`,
+          diedWall: ({ label }) => `${label} died by wall.`,
+          diedSelfCollision: ({ label }) => `${label} died by self collision.`,
+          diedBiteLengthDrop: ({ label }) => `${label} died: body length dropped below 2.`,
+          headCollision: () => "snakes heads collided, both died",
+          bite: ({ attackerLabel, enemyLabel, x, y }) => `${attackerLabel} bit ${enemyLabel} at (${x}, ${y}): ${attackerLabel} +1 length, ${enemyLabel} -1 segment.`,
+          ateFood: ({ label }) => `${label} ate food.`,
+          foodExpired: ({ x, y, seconds }) => `Food at (${x}, ${y}) expired after ${seconds}s.`,
+          newFood: ({ x, y }) => `New food appeared at (${x}, ${y}).`,
+          scriptSaved: ({ name }) => `Script "${name}" saved.`,
+          scriptLoaded: ({ name, label }) => `Script "${name}" loaded into ${label}.`,
+          battleFinishedGeneric: ({ resultText }) => `Battle finished. ${resultText}.`,
+          battleFinishedTimeExpired: () => "Battle finished. Time expired.",
+          battleFinishedPlain: () => "Battle finished."
+        }
+      },
+      ru: {
+        pageTitle: "Арена дуэли змей",
+        heroTitle: "Арена дуэли змей",
+        heroText: "Вы не управляете змеями напрямую. Вместо этого вы задаёте их инстинкты: каждая змея сканирует область 5×5 вокруг своей головы, находит первое совпавшее правило и поворачивает налево, направо или продолжает двигаться прямо.",
+        languageLabel: "Язык",
+        start: "Старт",
+        pause: "Пауза",
+        reset: "Сброс",
+        step: "Шаг",
+        timerLabel: "Таймер",
+        statusLabel: "Статус",
+        lengthALabel: "Длина змеи A",
+        lengthBLabel: "Длина змеи B",
+        lastRuleALabel: "Последнее правило змеи A",
+        lastRuleBLabel: "Последнее правило змеи B",
+        battleResultLabel: "Результат боя",
+        arenaAriaLabel: "Арена дуэли змей",
+        addRule: "Добавить правило",
+        saveScript: "Сохранить сценарий",
+        loadScript: "Загрузить сценарий",
+        scriptNameAriaA: "Название сценария для змеи A",
+        scriptNameAriaB: "Название сценария для змеи B",
+        actionLabelText: "Действие",
+        firstMatchWins: "Побеждает первое совпавшее правило.",
+        noRulesYet: "Правил пока нет. Добавьте хотя бы одно, чтобы задать инстинкты змеи.",
+        battleLogHeading: "Журнал боя",
+        battleLogHelper: "Журнал событий показывает, какое правило сработало, когда была съедена еда, кто кого укусил и чем закончилась дуэль.",
+        noEventsYet: "Событий пока нет.",
+        unnamedRule: "Безымянное правило",
+        ruleWord: "правило",
+        deleteRule: "Удалить",
+        ruleNameAria: ({ label }) => `Название правила для ${label}`,
+        actionAria: ({ label }) => `Действие правила для ${label}`,
+        snakeLabel: { snakeA: "Змея A", snakeB: "Змея B" },
+        legend: {
+          any: "ЛЮБОЕ",
+          empty: "ПУСТО",
+          self: "СВОЯ",
+          enemy: "ВРАГ",
+          enemyHead: "ГОЛОВА ВРАГА",
+          food: "ЕДА",
+          wall: "СТЕНА",
+          head: "ГОЛОВА (центр, фикс.)"
+        },
+        pattern: {
+          any: "ЛЮБ",
+          empty: "ПУСТ",
+          self: "СВОЯ",
+          enemy: "ВРАГ",
+          enemyHead: "ГВР",
+          food: "ЕДА",
+          wall: "СТЕН",
+          head: "ГОЛ"
+        },
+        action: { left: "налево", straight: "прямо", right: "направо" },
+        status: { paused: "пауза", running: "идёт бой", finished: "завершено" },
+        lastRuleNone: "—",
+        lastRuleDead: "погибла",
+        lastRuleDefault: "по умолчанию прямо",
+        demoRuleTurnFoodLeft: ({ label }) => `${label}: поворот к еде слева`,
+        demoRuleTurnFoodRight: ({ label }) => `${label}: поворот к еде справа`,
+        demoRuleAvoidWall: ({ label }) => `${label}: избегать стены впереди`,
+        resultMsgs: {
+          inProgress: () => "Идёт бой",
+          winsAlive: ({ label }) => `${label} побеждает`,
+          winsByLength: ({ label }) => `${label} побеждает по длине`,
+          draw: () => "Ничья",
+          winsByLastGreaterLength: ({ label }) => `${label} побеждает по последней большей длине`
+        },
+        log: {
+          reset: () => "Бой сброшен.",
+          started: () => "Бой начался.",
+          pausedLog: () => "Бой на паузе.",
+          ruleUsed: ({ label, ruleName, actionText }) => `${label} применила правило: ${ruleName} → ${actionText}`,
+          diedWall: ({ label }) => `${label} погибла, врезавшись в стену.`,
+          diedSelfCollision: ({ label }) => `${label} погибла от столкновения с собой.`,
+          diedBiteLengthDrop: ({ label }) => `${label} погибла: длина тела опустилась ниже 2.`,
+          headCollision: () => "змеи столкнулись головами, обе погибли",
+          bite: ({ attackerLabel, enemyLabel, x, y }) => `${attackerLabel} укусила ${enemyLabel} в точке (${x}, ${y}): ${attackerLabel} +1 к длине, ${enemyLabel} -1 сегмент.`,
+          ateFood: ({ label }) => `${label} съела еду.`,
+          foodExpired: ({ x, y, seconds }) => `Еда в точке (${x}, ${y}) исчезла через ${seconds} с.`,
+          newFood: ({ x, y }) => `Новая еда появилась в точке (${x}, ${y}).`,
+          scriptSaved: ({ name }) => `Сценарий "${name}" сохранён.`,
+          scriptLoaded: ({ name, label }) => `Сценарий "${name}" загружен в ${label}.`,
+          battleFinishedGeneric: ({ resultText }) => `Бой завершён. ${resultText}.`,
+          battleFinishedTimeExpired: () => "Бой завершён. Время истекло.",
+          battleFinishedPlain: () => "Бой завершён."
+        }
+      }
     };
-    const PATTERN_LABELS = {
-      any: "ANY",
-      empty: "EMP",
-      self: "SELF",
-      enemy: "ENMY",
-      enemyHead: "EHEAD",
-      food: "FOOD",
-      wall: "WALL",
-      head: "HEAD"
-    };
+
+    let currentLang = "ru";
+    try {
+      const storedLang = localStorage.getItem(LANG_STORAGE_KEY);
+      if (storedLang === "en" || storedLang === "ru") {
+        currentLang = storedLang;
+      }
+    } catch (error) {
+      // localStorage unavailable (e.g. sandboxed iframe); fall back to default language.
+    }
+
+    function tr(path, params) {
+      const segments = path.split(".");
+      let node = STRINGS[currentLang];
+      for (const segment of segments) {
+        node = node && node[segment];
+      }
+      return typeof node === "function" ? node(params) : node;
+    }
+
+    function snakeLabel(snakeKey) {
+      return tr(`snakeLabel.${snakeKey}`);
+    }
+
+    function actionText(action) {
+      return tr(`action.${action}`);
+    }
+
+    function applyStaticTranslations() {
+      document.title = tr("pageTitle");
+      document.querySelectorAll("[data-i18n]").forEach((el) => {
+        el.textContent = tr(el.dataset.i18n);
+      });
+      document.querySelectorAll("[data-i18n-aria]").forEach((el) => {
+        el.setAttribute("aria-label", tr(el.dataset.i18nAria));
+      });
+      document.querySelectorAll("[data-legend]").forEach((el) => {
+        el.textContent = tr(`legend.${el.dataset.legend}`);
+      });
+    }
+
+    function setLanguage(lang) {
+      currentLang = lang === "en" ? "en" : "ru";
+      try {
+        localStorage.setItem(LANG_STORAGE_KEY, currentLang);
+      } catch (error) {
+        // localStorage unavailable; language choice just won't persist across reloads.
+      }
+      applyStaticTranslations();
+      renderAll();
+    }
 
     let ruleIdCounter = 1;
 
@@ -554,7 +794,8 @@
       scriptNameA: document.getElementById("scriptNameA"),
       scriptNameB: document.getElementById("scriptNameB"),
       loadFileA: document.getElementById("loadFileA"),
-      loadFileB: document.getElementById("loadFileB")
+      loadFileB: document.getElementById("loadFileB"),
+      languageSelect: document.getElementById("languageSelect")
     };
 
     const scriptNameRefs = { snakeA: refs.scriptNameA, snakeB: refs.scriptNameB };
@@ -577,7 +818,8 @@
       };
     }
 
-    function createDemoRules(prefix) {
+    function createDemoRules(snakeKey) {
+      const label = snakeLabel(snakeKey);
       const foodLeft = createPattern();
       foodLeft[VIEW_CENTER][VIEW_CENTER - 1] = "food";
 
@@ -588,16 +830,16 @@
       wallAhead[VIEW_CENTER - 1][VIEW_CENTER] = "wall";
 
       return [
-        createRule(`${prefix}: turn to food on the left`, "left", foodLeft),
-        createRule(`${prefix}: turn to food on the right`, "right", foodRight),
-        createRule(`${prefix}: avoid wall ahead`, "left", wallAhead)
+        createRule(tr("demoRuleTurnFoodLeft", { label }), "left", foodLeft),
+        createRule(tr("demoRuleTurnFoodRight", { label }), "right", foodRight),
+        createRule(tr("demoRuleAvoidWall", { label }), "left", wallAhead)
       ];
     }
 
     function resetRulesToDefaults() {
       ruleIdCounter = 1;
-      state.rules.snakeA = createDemoRules("Snake A");
-      state.rules.snakeB = createDemoRules("Snake B");
+      state.rules.snakeA = createDemoRules("snakeA");
+      state.rules.snakeB = createDemoRules("snakeB");
     }
 
     function getRandomInt(min, max) {
@@ -642,11 +884,11 @@
     function createRandomInitialSnakes() {
       const MAX_ATTEMPTS = 20;
       const fallbackA = {
-        key: "snakeA", label: SNAKE_LABELS["snakeA"], alive: true, direction: "right",
+        key: "snakeA", alive: true, direction: "right",
         body: buildSnakeBodyFromHead({ x: 2, y: 6 }, "right")
       };
       const fallbackB = {
-        key: "snakeB", label: SNAKE_LABELS["snakeB"], alive: true, direction: "left",
+        key: "snakeB", alive: true, direction: "left",
         body: buildSnakeBodyFromHead({ x: 10, y: 6 }, "left")
       };
       for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
@@ -659,8 +901,8 @@
           continue;
         }
         return {
-          snakeA: { key: "snakeA", label: SNAKE_LABELS["snakeA"], alive: true, direction: spawnA.direction, body: spawnA.body },
-          snakeB: { key: "snakeB", label: SNAKE_LABELS["snakeB"], alive: true, direction: spawnB.direction, body: spawnB.body }
+          snakeA: { key: "snakeA", alive: true, direction: spawnA.direction, body: spawnA.body },
+          snakeB: { key: "snakeB", alive: true, direction: spawnB.direction, body: spawnB.body }
         };
       }
       return { snakeA: fallbackA, snakeB: fallbackB };
@@ -670,9 +912,9 @@
       stopTimer();
       state.status = "paused";
       state.remainingMs = BATTLE_DURATION_MS;
-      state.result = "In progress";
+      state.result = { key: "inProgress" };
       state.runEndsAt = null;
-      state.lastRule = { snakeA: "—", snakeB: "—" };
+      state.lastRule = { snakeA: LAST_RULE_NONE, snakeB: LAST_RULE_NONE };
       state.lastRuleIndex = { snakeA: -1, snakeB: -1 };
       const initialSnakes = createRandomInitialSnakes();
       state.snakes.snakeA = initialSnakes.snakeA;
@@ -681,13 +923,13 @@
       placeFood();
       if (logReset) {
         state.eventLog = [];
-        pushLog("Battle reset.");
+        pushLog("reset");
       }
       renderAll();
     }
 
-    function pushLog(message) {
-      state.eventLog.unshift(message);
+    function pushLog(key, params) {
+      state.eventLog.unshift({ key, params });
       state.eventLog = state.eventLog.slice(0, MAX_EVENT_LOG_ENTRIES);
       renderLog();
     }
@@ -695,9 +937,9 @@
     function renderLog() {
       refs.eventLog.innerHTML = state.eventLog.length
         ? state.eventLog
-            .map((entry) => `<div class="log-entry"><strong>•</strong> ${escapeHtml(entry)}</div>`)
+            .map((entry) => `<div class="log-entry"><strong>•</strong> ${escapeHtml(tr(`log.${entry.key}`, entry.params))}</div>`)
             .join("")
-        : `<div class="log-entry">No events yet.</div>`;
+        : `<div class="log-entry">${escapeHtml(tr("noEventsYet"))}</div>`;
     }
 
     function formatTimer(ms) {
@@ -738,14 +980,26 @@
       refs.arena.innerHTML = cells.join("");
     }
 
+    function formatLastRule(value) {
+      if (value === LAST_RULE_NONE) return tr("lastRuleNone");
+      if (value === LAST_RULE_DEAD) return tr("lastRuleDead");
+      if (value === LAST_RULE_DEFAULT) return tr("lastRuleDefault");
+      return value;
+    }
+
+    function formatResult(result) {
+      const params = result.params ? { label: snakeLabel(result.params.snakeKey) } : undefined;
+      return tr(`resultMsgs.${result.key}`, params);
+    }
+
     function renderStatus() {
       refs.timerValue.textContent = formatTimer(state.remainingMs);
-      refs.statusValue.textContent = state.status;
+      refs.statusValue.textContent = tr(`status.${state.status}`);
       refs.lengthAValue.textContent = String(state.snakes.snakeA.body.length);
       refs.lengthBValue.textContent = String(state.snakes.snakeB.body.length);
-      refs.lastRuleAValue.textContent = state.lastRule.snakeA;
-      refs.lastRuleBValue.textContent = state.lastRule.snakeB;
-      refs.resultValue.textContent = state.result;
+      refs.lastRuleAValue.textContent = formatLastRule(state.lastRule.snakeA);
+      refs.lastRuleBValue.textContent = formatLastRule(state.lastRule.snakeB);
+      refs.resultValue.textContent = formatResult(state.result);
     }
 
     function renderRuleList(snakeKey) {
@@ -756,27 +1010,28 @@
         ? rules
             .map((rule, index) => {
               const activeClass = state.lastRuleIndex[snakeKey] === index ? " active" : "";
+              const ruleLabel = snakeLabel(snakeKey);
               return `
                 <article class="rule-card${activeClass}" data-snake="${snakeKey}" data-rule-id="${rule.id}">
                   <div class="rule-header">
-                    <input type="text" value="${escapeAttribute(rule.name)}" data-field="name" aria-label="${SNAKE_LABELS[snakeKey]} rule name" />
+                    <input type="text" value="${escapeAttribute(rule.name)}" data-field="name" aria-label="${escapeAttribute(tr("ruleNameAria", { label: ruleLabel }))}" />
                     <button data-move="up" ${index === 0 ? "disabled" : ""}>↑</button>
                     <button data-move="down" ${index === rules.length - 1 ? "disabled" : ""}>↓</button>
-                    <button data-delete-rule="true">Delete</button>
+                    <button data-delete-rule="true">${tr("deleteRule")}</button>
                   </div>
                   <div class="rule-meta">
                     <label>
-                      <span class="helper">Action</span>
-                      <select data-field="action" aria-label="${SNAKE_LABELS[snakeKey]} rule action">
+                      <span class="helper">${tr("actionLabelText")}</span>
+                      <select data-field="action" aria-label="${escapeAttribute(tr("actionAria", { label: ruleLabel }))}">
                         ${["left", "straight", "right"]
                           .map(
                             (action) =>
-                              `<option value="${action}" ${rule.action === action ? "selected" : ""}>${action}</option>`
+                              `<option value="${action}" ${rule.action === action ? "selected" : ""}>${actionText(action)}</option>`
                           )
                           .join("")}
                       </select>
                     </label>
-                    <div class="helper">First matching rule wins.</div>
+                    <div class="helper">${tr("firstMatchWins")}</div>
                   </div>
                   <div class="pattern-grid">
                     ${renderPatternButtons(rule.pattern)}
@@ -785,7 +1040,7 @@
               `;
             })
             .join("")
-        : `<p class="helper">No rules yet. Add one to define this snake's instincts.</p>`;
+        : `<p class="helper">${tr("noRulesYet")}</p>`;
     }
 
     function renderPatternButtons(pattern) {
@@ -801,9 +1056,9 @@
                   class="pattern-cell ${cellClass}"
                   data-pattern-row="${rowIndex}"
                   data-pattern-col="${colIndex}"
-                  title="${cell}"
+                  title="${escapeAttribute(tr(`legend.${cell}`))}"
                   ${disabled ? "disabled" : ""}
-                >${PATTERN_LABELS[cell]}</button>
+                >${tr(`pattern.${cell}`)}</button>
               `;
             })
             .join("")
@@ -852,7 +1107,7 @@
       state.status = "running";
       state.runEndsAt = Date.now() + state.remainingMs;
       renderStatus();
-      pushLog("Battle started.");
+      pushLog("started");
       scheduleNextTick();
     }
 
@@ -880,11 +1135,11 @@
       }
       renderStatus();
       if (log) {
-        pushLog("Battle paused.");
+        pushLog("pausedLog");
       }
     }
 
-    function finalizeBattle(reason) {
+    function finalizeBattle(reasonKey) {
       stopTimer();
       state.runEndsAt = null;
       state.status = "finished";
@@ -894,27 +1149,27 @@
       const lenB = state.snakes.snakeB.body.length;
 
       if (snakeAAlive && !snakeBAlive) {
-        state.result = "Snake A wins";
+        state.result = { key: "winsAlive", params: { snakeKey: "snakeA" } };
       } else if (!snakeAAlive && snakeBAlive) {
-        state.result = "Snake B wins";
+        state.result = { key: "winsAlive", params: { snakeKey: "snakeB" } };
       } else if (snakeAAlive && snakeBAlive) {
         if (lenA > lenB) {
-          state.result = "Snake A wins by length";
+          state.result = { key: "winsByLength", params: { snakeKey: "snakeA" } };
         } else if (lenB > lenA) {
-          state.result = "Snake B wins by length";
+          state.result = { key: "winsByLength", params: { snakeKey: "snakeB" } };
         } else {
-          state.result = "Draw";
+          state.result = { key: "draw" };
         }
       } else if (lenA > lenB) {
-        state.result = "Snake A wins by last greater length";
+        state.result = { key: "winsByLastGreaterLength", params: { snakeKey: "snakeA" } };
       } else if (lenB > lenA) {
-        state.result = "Snake B wins by last greater length";
+        state.result = { key: "winsByLastGreaterLength", params: { snakeKey: "snakeB" } };
       } else {
-        state.result = "Draw";
+        state.result = { key: "draw" };
       }
 
       renderStatus();
-      pushLog(reason || `Battle finished. ${state.result}.`);
+      pushLog(reasonKey || "battleFinishedGeneric", { resultText: formatResult(state.result) });
     }
 
     function turnDirection(direction, action) {
@@ -964,7 +1219,7 @@
     }
 
     function saveScript(snakeKey) {
-      const scriptName = scriptNameRefs[snakeKey].value.trim() || SNAKE_LABELS[snakeKey];
+      const scriptName = scriptNameRefs[snakeKey].value.trim() || snakeLabel(snakeKey);
       const payload = {
         scriptName,
         rules: state.rules[snakeKey].map((rule) => ({
@@ -981,7 +1236,7 @@
       a.download = `${scriptName.toLowerCase().replace(/[^a-z0-9_-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "") || "script"}.json`;
       a.click();
       URL.revokeObjectURL(url);
-      pushLog(`Script "${scriptName}" saved.`);
+      pushLog("scriptSaved", { name: scriptName });
     }
 
     function loadScript(snakeKey, file) {
@@ -990,16 +1245,16 @@
         try {
           const parsed = JSON.parse(event.target.result);
           const rules = Array.isArray(parsed.rules)
-            ? parsed.rules.map((rule, index) => normalizeRule(rule, `${SNAKE_LABELS[snakeKey]} rule ${index + 1}`))
+            ? parsed.rules.map((rule, index) => normalizeRule(rule, `${snakeLabel(snakeKey)} ${tr("ruleWord")} ${index + 1}`))
             : [];
           state.rules[snakeKey] = rules;
-          state.lastRule[snakeKey] = "—";
+          state.lastRule[snakeKey] = LAST_RULE_NONE;
           state.lastRuleIndex[snakeKey] = -1;
           if (parsed.scriptName && typeof parsed.scriptName === "string") {
             scriptNameRefs[snakeKey].value = parsed.scriptName;
           }
           renderEditors();
-          pushLog(`Script "${parsed.scriptName || file.name}" loaded into ${SNAKE_LABELS[snakeKey]}.`);
+          pushLog("scriptLoaded", { name: parsed.scriptName || file.name, label: snakeLabel(snakeKey) });
         } catch (error) {
           window.alert(`Invalid JSON: ${error.message}`);
         }
@@ -1106,7 +1361,7 @@
         return {
           action: "straight",
           direction: snake.direction,
-          ruleName: "dead",
+          ruleName: LAST_RULE_DEAD,
           ruleIndex: -1
         };
       }
@@ -1126,18 +1381,18 @@
       return {
         action: "straight",
         direction: snake.direction,
-        ruleName: "default straight",
+        ruleName: LAST_RULE_DEFAULT,
         ruleIndex: -1
       };
     }
 
-    function markSnakeDead(snakeKey, reason) {
+    function markSnakeDead(snakeKey, logKey) {
       const snake = state.snakes[snakeKey];
       if (!snake.alive) {
         return;
       }
       snake.alive = false;
-      pushLog(`${snake.label} ${reason}`);
+      pushLog(logKey, { label: snakeLabel(snakeKey) });
     }
 
     function handleFoodExpiry() {
@@ -1148,10 +1403,10 @@
         const old = state.food;
         state.food = null;
         state.foodSpawnedAt = null;
-        pushLog(`Food at (${old.x}, ${old.y}) expired after ${FOOD_LIFETIME_MS / 1000}s.`);
+        pushLog("foodExpired", { x: old.x, y: old.y, seconds: FOOD_LIFETIME_MS / 1000 });
         placeFood();
         if (state.food) {
-          pushLog(`New food appeared at (${state.food.x}, ${state.food.y}).`);
+          pushLog("newFood", { x: state.food.x, y: state.food.y });
         }
       }
     }
@@ -1168,7 +1423,7 @@
       if (fromTimer && state.runEndsAt && Date.now() >= state.runEndsAt) {
         state.remainingMs = 0;
         renderAll();
-        finalizeBattle("Battle finished. Time expired.");
+        finalizeBattle("battleFinishedTimeExpired");
         return;
       }
 
@@ -1181,7 +1436,7 @@
       for (const snakeKey of SNAKE_KEYS) {
         const snake = state.snakes[snakeKey];
         if (!snake.alive) {
-          state.lastRule[snakeKey] = "dead";
+          state.lastRule[snakeKey] = LAST_RULE_DEAD;
           state.lastRuleIndex[snakeKey] = -1;
           continue;
         }
@@ -1191,7 +1446,7 @@
         state.lastRule[snakeKey] = decision.ruleName;
         state.lastRuleIndex[snakeKey] = decision.ruleIndex;
         if (decision.ruleIndex !== -1) {
-          pushLog(`${snake.label} used rule: ${decision.ruleName} → ${decision.action}`);
+          pushLog("ruleUsed", { label: snakeLabel(snakeKey), ruleName: decision.ruleName, actionText: actionText(decision.action) });
         }
         snake.direction = decision.direction;
         const delta = DIRECTION_DELTAS[snake.direction];
@@ -1219,7 +1474,7 @@
       ) {
         snakeA.alive = false;
         snakeB.alive = false;
-        pushLog("snakes heads collided, both died");
+        pushLog("headCollision");
       }
 
       for (const snakeKey of SNAKE_KEYS) {
@@ -1229,7 +1484,7 @@
           continue;
         }
         if (!isInsideGrid(target.x, target.y)) {
-          markSnakeDead(snakeKey, "died by wall.");
+          markSnakeDead(snakeKey, "diedWall");
           continue;
         }
         if (
@@ -1241,7 +1496,7 @@
             return segment.x === target.x && segment.y === target.y;
           })
         ) {
-          markSnakeDead(snakeKey, "died by self collision.");
+          markSnakeDead(snakeKey, "diedSelfCollision");
         }
       }
 
@@ -1276,11 +1531,12 @@
       }
 
       for (const plan of bitePlans) {
-        const attacker = state.snakes[plan.attackerKey];
-        const enemy = state.snakes[plan.enemyKey];
-        pushLog(
-          `${attacker.label} bit ${enemy.label} at (${plan.target.x}, ${plan.target.y}): ${attacker.label} +1 length, ${enemy.label} -1 segment.`
-        );
+        pushLog("bite", {
+          attackerLabel: snakeLabel(plan.attackerKey),
+          enemyLabel: snakeLabel(plan.enemyKey),
+          x: plan.target.x,
+          y: plan.target.y
+        });
       }
 
       for (const snakeKey of SNAKE_KEYS) {
@@ -1291,7 +1547,7 @@
         snake.body = snake.body.filter((_, index) => !biteRemovals[snakeKey].has(index));
         if (snake.body.length < 2) {
           snake.alive = false;
-          pushLog(`${snake.label} died: body length dropped below 2.`);
+          pushLog("diedBiteLengthDrop", { label: snakeLabel(snakeKey) });
         }
       }
 
@@ -1304,7 +1560,7 @@
         snake.body.unshift(target);
         const ateFood = state.food && target.x === state.food.x && target.y === state.food.y;
         if (ateFood) {
-          pushLog(`${snake.label} ate food.`);
+          pushLog("ateFood", { label: snakeLabel(snakeKey) });
           state.food = null;
         } else if (!biters.has(snakeKey)) {
           snake.body.pop();
@@ -1319,7 +1575,7 @@
         const snake = state.snakes[snakeKey];
         if (snake.alive && snake.body.length < 2) {
           snake.alive = false;
-          pushLog(`${snake.label} died: body length dropped below 2.`);
+          pushLog("diedBiteLengthDrop", { label: snakeLabel(snakeKey) });
         }
       }
 
@@ -1331,14 +1587,14 @@
       if (state.remainingMs <= 0) {
         state.remainingMs = 0;
         renderAll();
-        finalizeBattle("Battle finished. Time expired.");
+        finalizeBattle("battleFinishedTimeExpired");
         return;
       }
 
       const livingSnakes = SNAKE_KEYS.filter((snakeKey) => state.snakes[snakeKey].alive);
       renderAll();
       if (livingSnakes.length <= 1) {
-        finalizeBattle("Battle finished.");
+        finalizeBattle("battleFinishedPlain");
       }
     }
 
@@ -1371,7 +1627,8 @@
     }
 
     function addRule(snakeKey) {
-      state.rules[snakeKey].push(createRule(`${SNAKE_LABELS[snakeKey]} rule ${state.rules[snakeKey].length + 1}`, "straight"));
+      const ruleNumber = state.rules[snakeKey].length + 1;
+      state.rules[snakeKey].push(createRule(`${snakeLabel(snakeKey)} ${tr("ruleWord")} ${ruleNumber}`, "straight"));
       renderEditors();
     }
 
@@ -1439,7 +1696,7 @@
           return;
         }
         if (event.target.dataset.field === "name") {
-          rule.name = event.target.value || DEFAULT_RULE_NAME;
+          rule.name = event.target.value || tr("unnamedRule");
         }
       });
 
@@ -1459,6 +1716,9 @@
     }
 
     function wireControls() {
+      refs.languageSelect.addEventListener("change", (event) => {
+        setLanguage(event.target.value);
+      });
       refs.startButton.addEventListener("click", startBattle);
       refs.pauseButton.addEventListener("click", () => pauseBattle(true));
       refs.resetButton.addEventListener("click", () => resetBattleState(true));
@@ -1482,9 +1742,27 @@
       bindEditorEvents(document.querySelector(".snake-editor.snake-b"), "snakeB");
     }
 
+    refs.languageSelect.value = currentLang;
+    applyStaticTranslations();
+    refs.scriptNameA.value = snakeLabel("snakeA");
+    refs.scriptNameB.value = snakeLabel("snakeB");
     resetRulesToDefaults();
     wireControls();
     resetBattleState(true);
+
+    let ysdk;
+
+    async function initYandexSDK() {
+      try {
+        ysdk = await YaGames.init();
+        console.log("Yandex Games SDK initialized");
+        ysdk.features.LoadingAPI?.ready();
+      } catch (error) {
+        console.error("Yandex SDK initialization error:", error);
+      }
+    }
+
+    initYandexSDK();
   </script>
 </body>
 </html>
