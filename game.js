@@ -20,7 +20,7 @@ const LAST_RULE_DEAD = "__dead__";
 const LAST_RULE_DEFAULT = "__default__";
 const LANG_STORAGE_KEY = "snakeDuelLang";
 
-const SCREENS = ["menu", "missionSelect", "missionPlay", "duel"];
+const SCREENS = ["start", "menu", "missionSelect", "missionPlay", "duel"];
 let currentScreen = "menu";
 
 const STRINGS = {
@@ -381,6 +381,8 @@ const state = {
 };
 
 const refs = {
+  hero: document.getElementById("hero"),
+  startScreenButton: document.getElementById("startScreenButton"),
   languageSelect: document.getElementById("languageSelect"),
   menuMultiplayerButton: document.getElementById("menuMultiplayerButton"),
   menuSinglePlayerButton: document.getElementById("menuSinglePlayerButton"),
@@ -447,6 +449,7 @@ function showScreen(name) {
   for (const screenName of SCREENS) {
     document.getElementById(`screen-${screenName}`).classList.toggle("active", screenName === name);
   }
+  refs.hero.hidden = name === "start";
 }
 
 function createPattern() {
@@ -1909,7 +1912,22 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
+// Browsers block audio playback until a user gesture. The calm track is already requested at
+// boot (see the bottom of this file) so it starts looping silently right away; unlocking on the
+// very first interaction anywhere on the page — not just the menu buttons — makes it audible as
+// soon as possible instead of only after navigating into a mode.
+function unlockAudioOnFirstInteraction() {
+  getAudioContext();
+}
+document.addEventListener("pointerdown", unlockAudioOnFirstInteraction, { once: true });
+document.addEventListener("keydown", unlockAudioOnFirstInteraction, { once: true });
+
 function wireControls() {
+  refs.startScreenButton.addEventListener("click", () => {
+    playMenuClickSound();
+    showScreen("menu");
+  });
+
   refs.languageSelect.addEventListener("change", (event) => {
     playMenuClickSound();
     setLanguage(event.target.value);
@@ -2005,7 +2023,7 @@ editors.missionA.scriptNameInput.value = tr("missionPlay.yourSnakeLabel");
 resetRulesToDefaults();
 wireControls();
 resetBattleState(true);
-showScreen("menu");
+showScreen("start");
 
 let ysdk;
 
