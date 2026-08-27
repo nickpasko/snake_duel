@@ -647,6 +647,7 @@ function formatResult(result) {
 }
 
 function renderStatus() {
+  updateBackgroundMusic();
   const view = activeView();
   view.timerValue.textContent = formatTimer(state.remainingMs);
   view.statusValue.textContent = tr(`status.${state.status}`);
@@ -1705,6 +1706,208 @@ function playBattleEndSound() {
     playWinSound();
   }
 }
+
+// ===== Background music (two generative loops, rendered once into buffers and looped) =====
+
+const CALM_LOOP_DURATION = 8; // "before the battle" — menu, mission select, paused/finished screens
+const BATTLE_LOOP_DURATION = 4; // "during the battle" — while state.status === "running"
+const MUSIC_CROSSFADE_SECONDS = 1.2;
+
+function buildCalmMusicLoop(ctx) {
+  const duration = CALM_LOOP_DURATION;
+  const arpeggio = [220.0, 261.63, 329.63, 293.66, 392.0, 329.63, 261.63, 220.0]; // A minor pentatonic-ish, up and back down
+  const step = duration / arpeggio.length;
+  arpeggio.forEach((frequency, i) => {
+    const start = i * step;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = frequency;
+    gain.gain.setValueAtTime(0, start);
+    gain.gain.linearRampToValueAtTime(0.055, start + 0.5);
+    gain.gain.linearRampToValueAtTime(0, Math.min(duration, start + step * 1.7));
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(start);
+    osc.stop(Math.min(duration, start + step * 1.8));
+  });
+
+  // sustained soft bass drone, silent at both loop edges so the seam is inaudible
+  const bassOsc = ctx.createOscillator();
+  const bassGain = ctx.createGain();
+  const bassFilter = ctx.createBiquadFilter();
+  bassFilter.type = "lowpass";
+  bassFilter.frequency.value = 300;
+  bassOsc.type = "triangle";
+  bassOsc.frequency.value = 110;
+  bassGain.gain.setValueAtTime(0, 0);
+  bassGain.gain.linearRampToValueAtTime(0.045, 1.2);
+  bassGain.gain.setValueAtTime(0.045, duration - 1.2);
+  bassGain.gain.linearRampToValueAtTime(0, duration);
+  bassOsc.connect(bassFilter);
+  bassFilter.connect(bassGain);
+  bassGain.connect(ctx.destination);
+  bassOsc.start(0);
+  bassOsc.stop(duration);
+}
+
+function buildBattleMusicLoop(ctx) {
+  const duration = BATTLE_LOOP_DURATION;
+  const beat = 0.25;
+  const steps = Math.floor(duration / beat);
+  const bassNote = 82.41; // E2 — driving pulse
+
+  for (let i = 0; i < steps; i += 1) {
+    const start = i * beat;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sawtooth";
+    osc.frequency.value = bassNote;
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.09, start + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + beat * 0.85);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(start);
+    osc.stop(start + beat);
+
+    if (i % 2 === 1) {
+      // off-beat noise tick for rhythmic energy, like a soft hi-hat
+      const bufferSize = Math.floor(ctx.sampleRate * 0.03);
+      const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+      const data = noiseBuffer.getChannelData(0);
+      for (let s = 0; s < bufferSize; s += 1) {
+        data[s] = Math.random() * 2 - 1;
+      }
+      const noiseSource = ctx.createBufferSource();
+      noiseSource.buffer = noiseBuffer;
+      const filter = ctx.createBiquadFilter();
+      filter.type = "highpass";
+      filter.frequency.value = 6000;
+      const noiseGain = ctx.createGain();
+      noiseGain.gain.setValueAtTime(0.04, start);
+      noiseGain.gain.exponentialRampToValueAtTime(0.0001, start + 0.03);
+      noiseSource.connect(filter);
+      filter.connect(noiseGain);
+      noiseGain.connect(ctx.destination);
+      noiseSource.start(start);
+    }
+  }
+
+  // tense syncopated lead riff on top of the driving bass
+  const leadNotes = [
+    { time: 0.5, frequency: 220 },
+    { time: 1.0, frequency: 246.94 },
+    { time: 1.75, frequency: 220 },
+    { time: 2.5, frequency: 261.63 },
+    { time: 3.0, frequency: 246.94 },
+    { time: 3.5, frequency: 220 }
+  ];
+  leadNotes.forEach(({ time, frequency }) => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "square";
+    osc.frequency.value = frequency;
+    gain.gain.setValueAtTime(0.0001, time);
+    gain.gain.exponentialRampToValueAtTime(0.05, time + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.35);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(time);
+    osc.stop(time + 0.4);
+  });
+}
+
+let musicBuffersPromise = null;
+let musicSourceNode = null;
+let musicGainNode = null;
+let currentMusicTrack = null;
+let desiredMusicTrack = null;
+
+function getMusicBuffers() {
+  if (!musicBuffersPromise) {
+    const OfflineAudioContextClass = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (!OfflineAudioContextClass) {
+      musicBuffersPromise = Promise.resolve(null);
+    } else {
+      const sampleRate = 44100;
+      const calmCtx = new OfflineAudioContextClass(2, sampleRate * CALM_LOOP_DURATION, sampleRate);
+      buildCalmMusicLoop(calmCtx);
+      const battleCtx = new OfflineAudioContextClass(2, sampleRate * BATTLE_LOOP_DURATION, sampleRate);
+      buildBattleMusicLoop(battleCtx);
+      musicBuffersPromise = Promise.all([calmCtx.startRendering(), battleCtx.startRendering()])
+        .then(([calm, battle]) => ({ calm, battle }))
+        .catch(() => null);
+    }
+  }
+  return musicBuffersPromise;
+}
+
+async function playMusicTrack(trackName) {
+  const ctx = getAudioContext();
+  if (!ctx) {
+    return;
+  }
+  const buffers = await getMusicBuffers();
+  if (!buffers || desiredMusicTrack !== trackName || currentMusicTrack === trackName) {
+    return;
+  }
+  currentMusicTrack = trackName;
+  const buffer = buffers[trackName];
+  if (!buffer) {
+    return;
+  }
+
+  const newGain = ctx.createGain();
+  newGain.gain.setValueAtTime(0, ctx.currentTime);
+  newGain.gain.linearRampToValueAtTime(1, ctx.currentTime + MUSIC_CROSSFADE_SECONDS);
+  newGain.connect(ctx.destination);
+
+  const newSource = ctx.createBufferSource();
+  newSource.buffer = buffer;
+  newSource.loop = true;
+  newSource.connect(newGain);
+  newSource.start();
+
+  if (musicSourceNode && musicGainNode) {
+    const oldSource = musicSourceNode;
+    const oldGain = musicGainNode;
+    oldGain.gain.cancelScheduledValues(ctx.currentTime);
+    oldGain.gain.setValueAtTime(oldGain.gain.value, ctx.currentTime);
+    oldGain.gain.linearRampToValueAtTime(0, ctx.currentTime + MUSIC_CROSSFADE_SECONDS);
+    window.setTimeout(() => {
+      try {
+        oldSource.stop();
+      } catch (error) {
+        // already stopped
+      }
+    }, MUSIC_CROSSFADE_SECONDS * 1000 + 100);
+  }
+
+  musicSourceNode = newSource;
+  musicGainNode = newGain;
+}
+
+function updateBackgroundMusic() {
+  const track = state.status === "running" ? "battle" : "calm";
+  if (desiredMusicTrack === track) {
+    return;
+  }
+  desiredMusicTrack = track;
+  playMusicTrack(track);
+}
+
+// Yandex Games requires audio to stop when the game is backgrounded/minimized.
+document.addEventListener("visibilitychange", () => {
+  if (!audioContext) {
+    return;
+  }
+  if (document.hidden) {
+    audioContext.suspend();
+  } else {
+    audioContext.resume();
+  }
+});
 
 function wireControls() {
   refs.languageSelect.addEventListener("change", (event) => {
