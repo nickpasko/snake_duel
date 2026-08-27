@@ -28,10 +28,18 @@
     </section>
 
     <div id="screen-menu" class="screen menu-screen">
-      <h2 data-i18n="menu.title">Snake Duel Arena</h2>
+      <h2 data-i18n="menu.chooseMode">Choose your mode</h2>
       <div class="menu-actions">
-        <button id="menuMultiplayerButton" data-i18n="menu.multiplayerDuel">Multiplayer Duel</button>
-        <button id="menuSinglePlayerButton" data-i18n="menu.singlePlayer">Single Player</button>
+        <button id="menuMultiplayerButton" class="menu-tile">
+          <span class="menu-tile-icon" aria-hidden="true">⚔️</span>
+          <h3 data-i18n="menu.multiplayerDuel">Multiplayer Duel</h3>
+          <p data-i18n="menu.multiplayerDescription">Write two rule sets and watch them fight.</p>
+        </button>
+        <button id="menuSinglePlayerButton" class="menu-tile">
+          <span class="menu-tile-icon" aria-hidden="true">🎯</span>
+          <h3 data-i18n="menu.singlePlayer">Single Player</h3>
+          <p data-i18n="menu.singlePlayerDescription">Climb a ladder of 8 missions.</p>
+        </button>
       </div>
     </div>
 
@@ -71,10 +79,10 @@
           <div class="status-grid">
             <div class="status-card"><small data-i18n="timerLabel">Timer</small><strong id="timerValue-mission">—</strong></div>
             <div class="status-card"><small data-i18n="statusLabel">Status</small><strong id="statusValue-mission">—</strong></div>
-            <div class="status-card"><small data-i18n="lengthALabel">Snake A length</small><strong id="lengthAValue-mission">—</strong></div>
-            <div class="status-card snake-b-stat"><small data-i18n="lengthBLabel">Snake B length</small><strong id="lengthBValue-mission">—</strong></div>
-            <div class="status-card"><small data-i18n="lastRuleALabel">Snake A last rule</small><strong id="lastRuleAValue-mission">—</strong></div>
-            <div class="status-card snake-b-stat"><small data-i18n="lastRuleBLabel">Snake B last rule</small><strong id="lastRuleBValue-mission">—</strong></div>
+            <div class="status-card"><small data-i18n="missionPlay.yourSnakeLengthLabel">Your snake length</small><strong id="lengthAValue-mission">—</strong></div>
+            <div class="status-card snake-b-stat"><small data-i18n="missionPlay.opponentLengthLabel">Opponent length</small><strong id="lengthBValue-mission">—</strong></div>
+            <div class="status-card"><small data-i18n="missionPlay.yourSnakeLastRuleLabel">Your snake last rule</small><strong id="lastRuleAValue-mission">—</strong></div>
+            <div class="status-card snake-b-stat"><small data-i18n="missionPlay.opponentLastRuleLabel">Opponent last rule</small><strong id="lastRuleBValue-mission">—</strong></div>
             <div class="status-card" style="grid-column: 1 / -1;"><small data-i18n="battleResultLabel">Battle result</small><strong id="resultValue-mission">In progress</strong></div>
           </div>
 
@@ -84,10 +92,10 @@
         <div class="panel">
           <div class="editor-grid single-editor">
             <section class="snake-editor snake-a" id="editorSnakeA-mission" data-snake="snakeA">
-              <h2 data-i18n="snakeLabel.snakeA">Snake A</h2>
+              <h2 data-i18n="missionPlay.yourSnakeLabel">Your snake</h2>
               <div class="editor-toolbar">
                 <button data-add-rule="snakeA" data-i18n="addRule">Add rule</button>
-                <input type="text" id="scriptNameA-mission" class="script-name-input" value="Snake A" data-i18n-aria="scriptNameAriaA" aria-label="Script name for Snake A">
+                <input type="text" id="scriptNameA-mission" class="script-name-input" value="Your snake" data-i18n-aria="missionPlay.scriptNameAriaYourSnake" aria-label="Script name for your snake">
                 <button data-save-script="snakeA" data-i18n="saveScript">Save script</button>
                 <button data-load-script="snakeA" data-i18n="loadScript">Load script</button>
                 <input type="file" id="loadFileA-mission" accept=".json" hidden>

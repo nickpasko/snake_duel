@@ -116,21 +116,79 @@ textarea {
   gap: 1rem;
 }
 
+@keyframes menuFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .menu-screen {
   display: grid;
-  gap: 1rem;
+  gap: 1.5rem;
   justify-items: start;
+  padding: 1.5rem 0;
+  animation: menuFadeIn 0.45s ease;
+}
+
+.menu-screen h2 {
+  margin: 0;
+  font-size: 1.6rem;
 }
 
 .menu-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 1rem;
+  gap: 1.25rem;
 }
 
-.menu-actions button {
-  padding: 1rem 1.75rem;
-  font-size: 1.05rem;
+.menu-tile {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+  width: 280px;
+  padding: 1.75rem 1.5rem;
+  border-radius: 20px;
+  text-align: left;
+  background: linear-gradient(160deg, rgba(35, 42, 57, 0.95), rgba(15, 18, 26, 0.95));
+  border: 1px solid var(--border);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.menu-tile:hover {
+  transform: translateY(-5px);
+  border-color: var(--accent);
+  box-shadow: 0 16px 32px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(125, 211, 252, 0.3);
+}
+
+.menu-tile:active {
+  transform: translateY(-1px) scale(0.97);
+  box-shadow: 0 6px 14px rgba(0, 0, 0, 0.3);
+  transition-duration: 0.05s;
+}
+
+.menu-tile-icon {
+  font-size: 2.25rem;
+  line-height: 1;
+}
+
+.menu-tile h3 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: var(--text);
+}
+
+.menu-tile p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.4;
 }
 
 .mission-select-header {

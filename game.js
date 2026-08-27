@@ -87,9 +87,11 @@ const STRINGS = {
     demoRuleTurnFoodRight: ({ label }) => `${label}: turn to food on the right`,
     demoRuleAvoidWall: ({ label }) => `${label}: avoid wall ahead`,
     menu: {
-      title: "Snake Duel Arena",
+      chooseMode: "Choose your mode",
       multiplayerDuel: "Multiplayer Duel",
+      multiplayerDescription: "Write two rule sets and watch them fight.",
       singlePlayer: "Single Player",
+      singlePlayerDescription: "Climb a ladder of 8 missions.",
       backToMenu: "Back to menu"
     },
     missionSelect: {
@@ -114,7 +116,14 @@ const STRINGS = {
       loseBanner: () => "Mission failed. Try again?",
       retry: "Retry",
       nextMission: "Next mission",
-      backToMenuButton: "Back to menu"
+      backToMenuButton: "Back to menu",
+      yourSnakeLabel: "Your snake",
+      opponentLabel: "Opponent snake",
+      yourSnakeLengthLabel: "Your snake length",
+      opponentLengthLabel: "Opponent length",
+      yourSnakeLastRuleLabel: "Your snake last rule",
+      opponentLastRuleLabel: "Opponent last rule",
+      scriptNameAriaYourSnake: "Script name for your snake"
     },
     resultMsgs: {
       inProgress: () => "In progress",
@@ -211,9 +220,11 @@ const STRINGS = {
     demoRuleTurnFoodRight: ({ label }) => `${label}: поворот к еде справа`,
     demoRuleAvoidWall: ({ label }) => `${label}: избегать стены впереди`,
     menu: {
-      title: "Арена дуэли змей",
+      chooseMode: "Выберите режим",
       multiplayerDuel: "Дуэль (два игрока)",
+      multiplayerDescription: "Напишите два набора правил и наблюдайте за схваткой.",
       singlePlayer: "Одиночная игра",
+      singlePlayerDescription: "Пройдите лестницу из 8 миссий.",
       backToMenu: "В главное меню"
     },
     missionSelect: {
@@ -238,7 +249,14 @@ const STRINGS = {
       loseBanner: () => "Миссия провалена. Повторить?",
       retry: "Повторить",
       nextMission: "Следующая миссия",
-      backToMenuButton: "В главное меню"
+      backToMenuButton: "В главное меню",
+      yourSnakeLabel: "Ваша змея",
+      opponentLabel: "Змея противника",
+      yourSnakeLengthLabel: "Длина вашей змеи",
+      opponentLengthLabel: "Длина противника",
+      yourSnakeLastRuleLabel: "Последнее правило вашей змеи",
+      opponentLastRuleLabel: "Последнее правило противника",
+      scriptNameAriaYourSnake: "Название сценария для вашей змеи"
     },
     resultMsgs: {
       inProgress: () => "Идёт бой",
@@ -294,6 +312,9 @@ function tr(path, params) {
 }
 
 function snakeLabel(snakeKey) {
+  if (state.mode === "mission") {
+    return snakeKey === "snakeA" ? tr("missionPlay.yourSnakeLabel") : tr("missionPlay.opponentLabel");
+  }
   return tr(`snakeLabel.${snakeKey}`);
 }
 
@@ -1533,12 +1554,41 @@ function handleResetClick() {
   }
 }
 
+let audioContext = null;
+
+function playClickSound() {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) {
+    return;
+  }
+  if (!audioContext) {
+    audioContext = new AudioContextClass();
+  }
+  if (audioContext.state === "suspended") {
+    audioContext.resume();
+  }
+  const now = audioContext.currentTime;
+  const oscillator = audioContext.createOscillator();
+  const gainNode = audioContext.createGain();
+  oscillator.type = "triangle";
+  oscillator.frequency.setValueAtTime(720, now);
+  oscillator.frequency.exponentialRampToValueAtTime(280, now + 0.09);
+  gainNode.gain.setValueAtTime(0.0001, now);
+  gainNode.gain.exponentialRampToValueAtTime(0.18, now + 0.008);
+  gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 0.11);
+  oscillator.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+  oscillator.start(now);
+  oscillator.stop(now + 0.12);
+}
+
 function wireControls() {
   refs.languageSelect.addEventListener("change", (event) => {
     setLanguage(event.target.value);
   });
 
   refs.menuMultiplayerButton.addEventListener("click", () => {
+    playClickSound();
     state.mode = "duel";
     state.mission = null;
     resetBattleState(true);
@@ -1546,6 +1596,7 @@ function wireControls() {
   });
 
   refs.menuSinglePlayerButton.addEventListener("click", () => {
+    playClickSound();
     renderMissionSelect();
     showScreen("missionSelect");
   });
@@ -1596,9 +1647,9 @@ function wireControls() {
 
 refs.languageSelect.value = currentLang;
 applyStaticTranslations();
-for (const editor of Object.values(editors)) {
-  editor.scriptNameInput.value = snakeLabel(editor.snakeKey);
-}
+editors.duelA.scriptNameInput.value = tr("snakeLabel.snakeA");
+editors.duelB.scriptNameInput.value = tr("snakeLabel.snakeB");
+editors.missionA.scriptNameInput.value = tr("missionPlay.yourSnakeLabel");
 resetRulesToDefaults();
 wireControls();
 resetBattleState(true);
