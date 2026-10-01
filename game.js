@@ -293,10 +293,12 @@ const STRINGS = {
 };
 
 let currentLang = "ru";
+let languageExplicitlyChosen = false;
 try {
   const storedLang = localStorage.getItem(LANG_STORAGE_KEY);
   if (storedLang === "en" || storedLang === "ru") {
     currentLang = storedLang;
+    languageExplicitlyChosen = true;
   }
 } catch (error) {
   // localStorage unavailable (e.g. sandboxed iframe); fall back to default language.
@@ -335,12 +337,16 @@ function applyStaticTranslations() {
   });
 }
 
-function setLanguage(lang) {
+function setLanguage(lang, { explicit = true } = {}) {
   currentLang = lang === "en" ? "en" : "ru";
-  try {
-    localStorage.setItem(LANG_STORAGE_KEY, currentLang);
-  } catch (error) {
-    // localStorage unavailable; language choice just won't persist across reloads.
+  refs.languageSelect.value = currentLang;
+  if (explicit) {
+    languageExplicitlyChosen = true;
+    try {
+      localStorage.setItem(LANG_STORAGE_KEY, currentLang);
+    } catch (error) {
+      // localStorage unavailable; language choice just won't persist across reloads.
+    }
   }
   applyStaticTranslations();
   if (currentScreen === "missionSelect") {
@@ -2031,6 +2037,14 @@ async function initYandexSDK() {
   try {
     ysdk = await YaGames.init();
     console.log("Yandex Games SDK initialized");
+    // Auto language detection (required for all games, even RU/EN-only ones): apply the
+    // platform-reported language unless the player already picked one explicitly via the
+    // selector. Unsupported codes fall back to Russian inside setLanguage() itself. Must
+    // resolve before LoadingAPI.ready() so detection completes at startup, not mid-session.
+    const detectedLang = ysdk.environment?.i18n?.lang;
+    if (detectedLang && !languageExplicitlyChosen) {
+      setLanguage(detectedLang, { explicit: false });
+    }
     ysdk.features.LoadingAPI?.ready();
   } catch (error) {
     console.error("Yandex SDK initialization error:", error);
