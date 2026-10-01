@@ -1718,30 +1718,195 @@ function playBattleEndSound() {
 
 // ===== Background music (two generative loops, rendered once into buffers and looped) =====
 
-const CALM_LOOP_DURATION = 8; // "before the battle" — menu, mission select, paused/finished screens
-const BATTLE_LOOP_DURATION = 4; // "during the battle" — while state.status === "running"
+// "before the battle" — menu, mission select, paused/finished screens. Built as eight 12s phases,
+// same idea as the battle loop: a constant soft bass drone runs the whole way through, and each
+// phase layers different melodic material on top before the loop repeats.
+const CALM_PHASE_DURATION = 12;
+const CALM_PHASE_COUNT = 8;
+const CALM_LOOP_DURATION = CALM_PHASE_DURATION * CALM_PHASE_COUNT;
+// "during the battle" — while state.status === "running". Built as eight 8s phases, arcing from a
+// sparse intro through a breakdown and a rebuild to a climax, so the loop doesn't feel like a
+// single bar repeating: a constant driving pulse runs the whole way through, and each phase layers
+// different melodic/polyphonic material on top of it before the loop repeats.
+const BATTLE_PHASE_DURATION = 8;
+const BATTLE_PHASE_COUNT = 8;
+const BATTLE_LOOP_DURATION = BATTLE_PHASE_DURATION * BATTLE_PHASE_COUNT;
 const MUSIC_CROSSFADE_SECONDS = 1.2;
+
+function playCalmTone(ctx, start, stop, frequency, { type = "sine", peak = 0.055, attack = 0.5 } = {}) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = type;
+  osc.frequency.value = frequency;
+  gain.gain.setValueAtTime(0, start);
+  gain.gain.linearRampToValueAtTime(peak, Math.min(stop, start + attack));
+  gain.gain.linearRampToValueAtTime(0, stop);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(start);
+  osc.stop(stop);
+}
+
+// New instrument layer: a wandering sine melody with gentle vibrato, like a soft flute.
+function playFluteNote(ctx, start, duration, frequency) {
+  const osc = ctx.createOscillator();
+  const vibrato = ctx.createOscillator();
+  const vibratoGain = ctx.createGain();
+  const gain = ctx.createGain();
+  osc.type = "sine";
+  osc.frequency.value = frequency;
+  vibrato.frequency.value = 5;
+  vibratoGain.gain.value = 4;
+  vibrato.connect(vibratoGain);
+  vibratoGain.connect(osc.frequency);
+  gain.gain.setValueAtTime(0, start);
+  gain.gain.linearRampToValueAtTime(0.045, start + 0.4);
+  gain.gain.linearRampToValueAtTime(0, start + duration);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  vibrato.start(start);
+  vibrato.stop(start + duration);
+  osc.start(start);
+  osc.stop(start + duration);
+}
+
+// New instrument layer: a quick triangle pluck with a long decay, like a harp.
+function playHarpPluck(ctx, start, frequency) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = "triangle";
+  osc.frequency.value = frequency;
+  gain.gain.setValueAtTime(0.0001, start);
+  gain.gain.exponentialRampToValueAtTime(0.05, start + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.9);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(start);
+  osc.stop(start + 1.0);
+}
+
+// New instrument layer: filtered noise swelling in and out, like a soft gust of wind.
+function playWindPad(ctx, start, stop, peak = 0.02) {
+  const bufferSize = Math.floor(ctx.sampleRate * (stop - start));
+  const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = noiseBuffer.getChannelData(0);
+  for (let s = 0; s < bufferSize; s += 1) {
+    data[s] = Math.random() * 2 - 1;
+  }
+  const noiseSource = ctx.createBufferSource();
+  noiseSource.buffer = noiseBuffer;
+  const filter = ctx.createBiquadFilter();
+  filter.type = "bandpass";
+  filter.frequency.value = 500;
+  filter.Q.value = 0.6;
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0, start);
+  gain.gain.linearRampToValueAtTime(peak, start + (stop - start) / 2);
+  gain.gain.linearRampToValueAtTime(0, stop);
+  noiseSource.connect(filter);
+  filter.connect(gain);
+  gain.connect(ctx.destination);
+  noiseSource.start(start);
+  noiseSource.stop(stop);
+}
 
 function buildCalmMusicLoop(ctx) {
   const duration = CALM_LOOP_DURATION;
-  const arpeggio = [220.0, 261.63, 329.63, 293.66, 392.0, 329.63, 261.63, 220.0]; // A minor pentatonic-ish, up and back down
-  const step = duration / arpeggio.length;
-  arpeggio.forEach((frequency, i) => {
-    const start = i * step;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = "sine";
-    osc.frequency.value = frequency;
-    gain.gain.setValueAtTime(0, start);
-    gain.gain.linearRampToValueAtTime(0.055, start + 0.5);
-    gain.gain.linearRampToValueAtTime(0, Math.min(duration, start + step * 1.7));
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start(start);
-    osc.stop(Math.min(duration, start + step * 1.8));
+
+  // Phase 0 (0-12s): the original gentle A minor pentatonic-ish arpeggio, up and back down.
+  const arpeggioPhase0 = [220.0, 261.63, 329.63, 293.66, 392.0, 329.63, 261.63, 220.0];
+  const stepPhase0 = CALM_PHASE_DURATION / arpeggioPhase0.length;
+  arpeggioPhase0.forEach((frequency, i) => {
+    const start = i * stepPhase0;
+    playCalmTone(ctx, start, Math.min(duration, start + stepPhase0 * 1.8), frequency);
   });
 
-  // sustained soft bass drone, silent at both loop edges so the seam is inaudible
+  // Phase 1 (12-24s): a brighter C major arpeggio plus a sustained C/G pad underneath it, so two
+  // melodic voices sound together instead of a single line — the first polyphony layer.
+  const phase1Start = CALM_PHASE_DURATION;
+  const arpeggioPhase1 = [261.63, 329.63, 392.0, 440.0, 392.0, 329.63];
+  const stepPhase1 = CALM_PHASE_DURATION / arpeggioPhase1.length;
+  arpeggioPhase1.forEach((frequency, i) => {
+    const start = phase1Start + i * stepPhase1;
+    playCalmTone(ctx, start, Math.min(phase1Start + CALM_PHASE_DURATION, start + stepPhase1 * 1.8), frequency);
+  });
+  playCalmTone(ctx, phase1Start + 0.3, phase1Start + CALM_PHASE_DURATION - 0.3, 261.63, { type: "triangle", peak: 0.03, attack: 1.5 });
+  playCalmTone(ctx, phase1Start + 0.3, phase1Start + CALM_PHASE_DURATION - 0.3, 392.0, { type: "triangle", peak: 0.025, attack: 1.5 });
+
+  // Phase 2 (24-36s): a sparse, airy bell melody arching up and back down in a higher register,
+  // over a held G/D pad.
+  const phase2Start = CALM_PHASE_DURATION * 2;
+  const bellNotes = [
+    { time: 0, frequency: 523.25 },
+    { time: 2.5, frequency: 659.25 },
+    { time: 5.0, frequency: 783.99 },
+    { time: 7.5, frequency: 659.25 },
+    { time: 9.5, frequency: 523.25 }
+  ];
+  bellNotes.forEach(({ time, frequency }) => {
+    const start = phase2Start + time;
+    playCalmTone(ctx, start, Math.min(duration, start + 1.8), frequency, { type: "triangle", peak: 0.04, attack: 0.3 });
+  });
+  playCalmTone(ctx, phase2Start + 0.3, phase2Start + CALM_PHASE_DURATION - 0.3, 392.0, { type: "sine", peak: 0.025, attack: 1.5 });
+  playCalmTone(ctx, phase2Start + 0.3, phase2Start + CALM_PHASE_DURATION - 0.3, 293.66, { type: "sine", peak: 0.02, attack: 1.5 });
+
+  // Phase 3 (36-48s): a wandering flute melody over a soft held A2/E3 pad — new instrument layer 1.
+  const phase3Start = CALM_PHASE_DURATION * 3;
+  const fluteNotesPhase3 = [
+    { time: 0.5, frequency: 329.63, duration: 2.2 },
+    { time: 3.2, frequency: 392.0, duration: 2.0 },
+    { time: 5.8, frequency: 349.23, duration: 1.8 },
+    { time: 8.2, frequency: 293.66, duration: 2.2 },
+    { time: 10.3, frequency: 329.63, duration: 1.5 }
+  ];
+  fluteNotesPhase3.forEach(({ time, frequency, duration: noteDuration }) => {
+    playFluteNote(ctx, phase3Start + time, noteDuration, frequency);
+  });
+  playCalmTone(ctx, phase3Start + 0.3, phase3Start + CALM_PHASE_DURATION - 0.3, 110, { type: "sine", peak: 0.02, attack: 1.5 });
+  playCalmTone(ctx, phase3Start + 0.3, phase3Start + CALM_PHASE_DURATION - 0.3, 164.81, { type: "sine", peak: 0.015, attack: 1.5 });
+
+  // Phase 4 (48-60s): a lively harp pluck arpeggio over the C/G pad — new instrument layer 2.
+  const phase4Start = CALM_PHASE_DURATION * 4;
+  const harpArpeggio = [220, 261.63, 329.63, 440, 523.25, 440, 329.63, 261.63, 220, 261.63, 329.63, 440];
+  harpArpeggio.forEach((frequency, i) => {
+    playHarpPluck(ctx, phase4Start + i * 1.0, frequency);
+  });
+  playCalmTone(ctx, phase4Start + 0.3, phase4Start + CALM_PHASE_DURATION - 0.3, 261.63, { type: "triangle", peak: 0.022, attack: 1.5 });
+  playCalmTone(ctx, phase4Start + 0.3, phase4Start + CALM_PHASE_DURATION - 0.3, 392.0, { type: "triangle", peak: 0.018, attack: 1.5 });
+
+  // Phase 5 (60-72s): a sparse breather — just a wind-pad swell and the bass drone, no melody —
+  // new instrument layer 3, used here as a contrast before the two new voices recombine.
+  const phase5Start = CALM_PHASE_DURATION * 5;
+  playWindPad(ctx, phase5Start + 0.5, phase5Start + CALM_PHASE_DURATION - 0.5, 0.025);
+  playFluteNote(ctx, phase5Start + 4, 3.5, 392.0);
+
+  // Phase 6 (72-84s): flute and harp pluck recombine for a fuller recap of the two new voices.
+  const phase6Start = CALM_PHASE_DURATION * 6;
+  const fluteNotesPhase6 = [
+    { time: 0.5, frequency: 392.0, duration: 2.0 },
+    { time: 5.5, frequency: 440.0, duration: 2.5 },
+    { time: 9.5, frequency: 349.23, duration: 2.0 }
+  ];
+  fluteNotesPhase6.forEach(({ time, frequency, duration: noteDuration }) => {
+    playFluteNote(ctx, phase6Start + time, noteDuration, frequency);
+  });
+  [0, 1, 2, 3, 6, 7, 8, 9].forEach((step) => {
+    const harpFrequencies = [261.63, 329.63, 392.0, 440, 392.0, 329.63, 261.63, 329.63];
+    playHarpPluck(ctx, phase6Start + step * 1.2, harpFrequencies[step % harpFrequencies.length]);
+  });
+  playWindPad(ctx, phase6Start + 0.3, phase6Start + CALM_PHASE_DURATION - 0.3, 0.015);
+
+  // Phase 7 (84-96s): the phase 0 arpeggio returns, softened, under a fading wind pad, smoothing
+  // the seam back into the loop start.
+  const phase7Start = CALM_PHASE_DURATION * 7;
+  arpeggioPhase0.forEach((frequency, i) => {
+    const start = phase7Start + i * stepPhase0;
+    playCalmTone(ctx, start, Math.min(duration, start + stepPhase0 * 1.8), frequency, { peak: 0.04 });
+  });
+  playWindPad(ctx, phase7Start + 0.3, duration, 0.018);
+
+  // Constant background: a soft bass drone sustained across the whole loop, silent at both loop
+  // edges so the seam is inaudible — the "single background tempo-like sound" all phases sit on.
   const bassOsc = ctx.createOscillator();
   const bassGain = ctx.createGain();
   const bassFilter = ctx.createBiquadFilter();
@@ -1760,12 +1925,78 @@ function buildCalmMusicLoop(ctx) {
   bassOsc.stop(duration);
 }
 
+// New instrument layer: a sine kick drum with a fast pitch drop.
+function playKick(ctx, start) {
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(150, start);
+  osc.frequency.exponentialRampToValueAtTime(45, start + 0.12);
+  gain.gain.setValueAtTime(0.16, start);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.22);
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start(start);
+  osc.stop(start + 0.25);
+}
+
+// New instrument layer: a band-passed noise burst, like a snare/clap on the backbeat.
+function playSnare(ctx, start) {
+  const bufferSize = Math.floor(ctx.sampleRate * 0.15);
+  const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+  const data = noiseBuffer.getChannelData(0);
+  for (let s = 0; s < bufferSize; s += 1) {
+    data[s] = Math.random() * 2 - 1;
+  }
+  const noiseSource = ctx.createBufferSource();
+  noiseSource.buffer = noiseBuffer;
+  const filter = ctx.createBiquadFilter();
+  filter.type = "bandpass";
+  filter.frequency.value = 1800;
+  filter.Q.value = 0.8;
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.1, start);
+  gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.15);
+  noiseSource.connect(filter);
+  filter.connect(gain);
+  gain.connect(ctx.destination);
+  noiseSource.start(start);
+}
+
+// New instrument layer: a sustained chord of detuned, lowpassed sawtooths, like a synth pad.
+function playBattlePad(ctx, start, stop, frequencies) {
+  frequencies.forEach((frequency) => {
+    [-6, 6].forEach((detune) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const filter = ctx.createBiquadFilter();
+      filter.type = "lowpass";
+      filter.frequency.value = 700;
+      osc.type = "sawtooth";
+      osc.frequency.value = frequency;
+      osc.detune.value = detune;
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(0.028, start + 0.8);
+      gain.gain.setValueAtTime(0.028, stop - 0.8);
+      gain.gain.linearRampToValueAtTime(0, stop);
+      osc.connect(filter);
+      filter.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(start);
+      osc.stop(stop);
+    });
+  });
+}
+
 function buildBattleMusicLoop(ctx) {
   const duration = BATTLE_LOOP_DURATION;
   const beat = 0.25;
   const steps = Math.floor(duration / beat);
-  const bassNote = 82.41; // E2 — driving pulse
+  const bassNote = 82.41; // E2 — driving pulse, constant for the whole loop regardless of phase
+  const chordFrequencies = [220, 261.63, 329.63]; // A minor triad, reused across several phases
 
+  // Rhythm section: the "single background tempo" — bass pulse plus off-beat hi-hat — runs
+  // unchanged across all eight phases so the loop always has one steady through-line.
   for (let i = 0; i < steps; i += 1) {
     const start = i * beat;
     const osc = ctx.createOscillator();
@@ -1803,28 +2034,154 @@ function buildBattleMusicLoop(ctx) {
     }
   }
 
-  // tense syncopated lead riff on top of the driving bass
+  // Phase 0 (0-8s) intro: low tension drone swells in under the pulse, nothing else yet.
+  const droneOsc = ctx.createOscillator();
+  const droneGain = ctx.createGain();
+  const droneFilter = ctx.createBiquadFilter();
+  droneFilter.type = "lowpass";
+  droneFilter.frequency.value = 220;
+  droneOsc.type = "sawtooth";
+  droneOsc.frequency.value = 41.2; // E1, an octave under the pulse
+  droneGain.gain.setValueAtTime(0, 0);
+  droneGain.gain.linearRampToValueAtTime(0.05, 6);
+  droneGain.gain.linearRampToValueAtTime(0, BATTLE_PHASE_DURATION);
+  droneOsc.connect(droneFilter);
+  droneFilter.connect(droneGain);
+  droneGain.connect(ctx.destination);
+  droneOsc.start(0);
+  droneOsc.stop(BATTLE_PHASE_DURATION);
+
+  // Phase 1 (8-16s): new instrument layer 1 — a kick drum enters on every beat, nothing melodic
+  // yet, so the groove thickens before any lead comes in.
+  const phase1Start = BATTLE_PHASE_DURATION;
+  for (let beatIndex = 0; beatIndex < 8; beatIndex += 1) {
+    playKick(ctx, phase1Start + beatIndex);
+  }
+
+  // Phase 2 (16-24s): tense syncopated lead riff enters on top of pulse + kick.
+  const phase2Start = BATTLE_PHASE_DURATION * 2;
   const leadNotes = [
     { time: 0.5, frequency: 220 },
     { time: 1.0, frequency: 246.94 },
     { time: 1.75, frequency: 220 },
     { time: 2.5, frequency: 261.63 },
     { time: 3.0, frequency: 246.94 },
-    { time: 3.5, frequency: 220 }
+    { time: 3.5, frequency: 220 },
+    { time: 4.5, frequency: 246.94 },
+    { time: 5.0, frequency: 277.18 },
+    { time: 5.75, frequency: 246.94 },
+    { time: 6.5, frequency: 293.66 },
+    { time: 7.0, frequency: 277.18 },
+    { time: 7.5, frequency: 246.94 }
   ];
-  leadNotes.forEach(({ time, frequency }) => {
+  const playLeadNote = (phaseStart, { time, frequency }) => {
+    const start = phaseStart + time;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = "square";
     osc.frequency.value = frequency;
-    gain.gain.setValueAtTime(0.0001, time);
-    gain.gain.exponentialRampToValueAtTime(0.05, time + 0.02);
-    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.35);
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.05, start + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.35);
     osc.connect(gain);
     gain.connect(ctx.destination);
-    osc.start(time);
-    osc.stop(time + 0.4);
+    osc.start(start);
+    osc.stop(start + 0.4);
+  };
+  leadNotes.forEach((note) => playLeadNote(phase2Start, note));
+  for (let beatIndex = 0; beatIndex < 8; beatIndex += 1) {
+    playKick(ctx, phase2Start + beatIndex);
+  }
+
+  // Phase 3 (24-32s): the riff repeats with a triangle-wave counter-melody a fifth above — two
+  // melodic voices sounding together — plus new instrument layer 2, a sustained synth pad.
+  const phase3Start = BATTLE_PHASE_DURATION * 3;
+  leadNotes.forEach((note) => {
+    playLeadNote(phase3Start, note);
+    const start = phase3Start + note.time;
+    const harmonyOsc = ctx.createOscillator();
+    const harmonyGain = ctx.createGain();
+    harmonyOsc.type = "triangle";
+    harmonyOsc.frequency.value = note.frequency * 1.5; // a fifth above the lead
+    harmonyGain.gain.setValueAtTime(0.0001, start);
+    harmonyGain.gain.exponentialRampToValueAtTime(0.035, start + 0.03);
+    harmonyGain.gain.exponentialRampToValueAtTime(0.0001, start + 0.4);
+    harmonyOsc.connect(harmonyGain);
+    harmonyGain.connect(ctx.destination);
+    harmonyOsc.start(start);
+    harmonyOsc.stop(start + 0.45);
   });
+  playBattlePad(ctx, phase3Start + 0.2, phase3Start + BATTLE_PHASE_DURATION - 0.2, chordFrequencies);
+  for (let beatIndex = 0; beatIndex < 8; beatIndex += 1) {
+    playKick(ctx, phase3Start + beatIndex);
+  }
+
+  // Phase 4 (32-40s) breakdown: drop the lead and harmony, keep the pad sustained, half-time
+  // kick, and bring in new instrument layer 3 — a snare on the backbeat — for a different groove.
+  const phase4Start = BATTLE_PHASE_DURATION * 4;
+  playBattlePad(ctx, phase4Start + 0.2, phase4Start + BATTLE_PHASE_DURATION - 0.2, chordFrequencies);
+  [0, 2, 4, 6].forEach((beatIndex) => playKick(ctx, phase4Start + beatIndex));
+  [1, 3, 5, 7].forEach((beatIndex) => playSnare(ctx, phase4Start + beatIndex));
+
+  // Phase 5 (40-48s): rebuild — lead riff returns over full kick + snare backbeat + pad, pushing
+  // the energy back up toward the climax.
+  const phase5Start = BATTLE_PHASE_DURATION * 5;
+  leadNotes.forEach((note) => playLeadNote(phase5Start, note));
+  playBattlePad(ctx, phase5Start + 0.2, phase5Start + BATTLE_PHASE_DURATION - 0.2, chordFrequencies);
+  for (let beatIndex = 0; beatIndex < 8; beatIndex += 1) {
+    playKick(ctx, phase5Start + beatIndex);
+  }
+  [1, 3, 5, 7].forEach((beatIndex) => playSnare(ctx, phase5Start + beatIndex));
+
+  // Phase 6 (48-56s): pre-climax — lead, harmony, pad, kick, snare and hi-hat all layered together
+  // for the densest texture before the drop.
+  const phase6Start = BATTLE_PHASE_DURATION * 6;
+  leadNotes.forEach((note) => {
+    playLeadNote(phase6Start, note);
+    const start = phase6Start + note.time;
+    const harmonyOsc = ctx.createOscillator();
+    const harmonyGain = ctx.createGain();
+    harmonyOsc.type = "triangle";
+    harmonyOsc.frequency.value = note.frequency * 1.5;
+    harmonyGain.gain.setValueAtTime(0.0001, start);
+    harmonyGain.gain.exponentialRampToValueAtTime(0.035, start + 0.03);
+    harmonyGain.gain.exponentialRampToValueAtTime(0.0001, start + 0.4);
+    harmonyOsc.connect(harmonyGain);
+    harmonyGain.connect(ctx.destination);
+    harmonyOsc.start(start);
+    harmonyOsc.stop(start + 0.45);
+  });
+  playBattlePad(ctx, phase6Start + 0.2, phase6Start + BATTLE_PHASE_DURATION - 0.2, chordFrequencies);
+  for (let beatIndex = 0; beatIndex < 8; beatIndex += 1) {
+    playKick(ctx, phase6Start + beatIndex);
+  }
+  [0.5, 1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5].forEach((offset) => playSnare(ctx, phase6Start + offset));
+
+  // Phase 7 (56-64s) climax: stacked A-minor triad stabs ride over pad + kick + snare + pulse
+  // before the loop resets back to the sparse drone of phase 0.
+  const phase7Start = BATTLE_PHASE_DURATION * 7;
+  const chordStabTimes = [0, 0.5, 1.5, 2, 2.5, 3.5, 4, 4.5, 5.5, 6, 6.5, 7.5];
+  chordStabTimes.forEach((offset) => {
+    const start = phase7Start + offset;
+    chordFrequencies.forEach((frequency) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sawtooth";
+      osc.frequency.value = frequency;
+      gain.gain.setValueAtTime(0.0001, start);
+      gain.gain.exponentialRampToValueAtTime(0.045, start + 0.015);
+      gain.gain.exponentialRampToValueAtTime(0.0001, start + 0.3);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(start);
+      osc.stop(start + 0.35);
+    });
+  });
+  playBattlePad(ctx, phase7Start + 0.2, duration - 0.2, chordFrequencies);
+  for (let beatIndex = 0; beatIndex < 8; beatIndex += 1) {
+    playKick(ctx, phase7Start + beatIndex);
+  }
+  [1, 3, 5, 7].forEach((beatIndex) => playSnare(ctx, phase7Start + beatIndex));
 }
 
 let musicBuffersPromise = null;
