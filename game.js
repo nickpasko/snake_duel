@@ -347,6 +347,7 @@ function setLanguage(lang, { explicit = true } = {}) {
     } catch (error) {
       // localStorage unavailable; language choice just won't persist across reloads.
     }
+    persistCloudData({ lang: currentLang, languageExplicit: true });
   }
   applyStaticTranslations();
   if (currentScreen === "missionSelect") {
@@ -1461,6 +1462,7 @@ function saveMissionProgress(progress) {
   } catch (error) {
     // localStorage unavailable; progress just won't persist across reloads.
   }
+  persistCloudData({ missionProgress: progress });
 }
 
 function isMissionUnlocked(missionId, progress) {
@@ -2393,6 +2395,65 @@ resetBattleState(true);
 showScreen("start");
 
 let ysdk;
+let ysdkPlayer = null;
+
+// Mirrors language/mission-progress saves into the Yandex player's cloud data, in addition to
+// the localStorage writes at each call site, so progress follows the player across devices
+// (platform requirement: progress/settings must persist via ysdk.getPlayer()). No-op until
+// syncWithCloudPlayer() has resolved a player. Read-modify-write rather than assuming setData()
+// merges, so a language-only update never clobbers previously-saved mission progress or vice
+// versa. flush=true saves promptly instead of waiting on the SDK's default batching.
+function persistCloudData(partialUpdate) {
+  if (!ysdkPlayer) {
+    return;
+  }
+  ysdkPlayer
+    .getData(["lang", "languageExplicit", "missionProgress"])
+    .then((existing) => ysdkPlayer.setData({ ...existing, ...partialUpdate }, true))
+    .catch(() => {
+      // best-effort; localStorage already has the update regardless
+    });
+}
+
+// Fire-and-forget: resolves the player and reconciles cloud data against what's already in
+// localStorage/memory. Called after LoadingAPI.ready() so a slow network never delays the ready
+// signal — only the existing environment.i18n.lang auto-detect (above) gates that.
+async function syncWithCloudPlayer() {
+  try {
+    ysdkPlayer = await ysdk.getPlayer({ scopes: false });
+  } catch (error) {
+    return; // anonymous/offline/unsupported environment — stay in localStorage-only mode
+  }
+
+  let cloud;
+  try {
+    cloud = await ysdkPlayer.getData(["lang", "languageExplicit", "missionProgress"]);
+  } catch (error) {
+    return;
+  }
+
+  // Language precedence: cloud explicit choice > local explicit choice > SDK auto-detect
+  // (already applied above) > default.
+  if (cloud.languageExplicit && (cloud.lang === "en" || cloud.lang === "ru")) {
+    if (cloud.lang !== currentLang) {
+      setLanguage(cloud.lang, { explicit: true });
+    }
+  } else if (languageExplicitlyChosen) {
+    persistCloudData({ lang: currentLang, languageExplicit: true }); // push local choice up
+  }
+
+  // Mission progress: union of completed missions from both sides, so neither copy regresses.
+  if (cloud.missionProgress && cloud.missionProgress.completed) {
+    const local = loadMissionProgress();
+    const merged = { version: 1, completed: { ...local.completed, ...cloud.missionProgress.completed } };
+    if (JSON.stringify(merged.completed) !== JSON.stringify(local.completed)) {
+      saveMissionProgress(merged);
+      if (currentScreen === "missionSelect") {
+        renderMissionSelect();
+      }
+    }
+  }
+}
 
 async function initYandexSDK() {
   try {
@@ -2407,6 +2468,7 @@ async function initYandexSDK() {
       setLanguage(detectedLang, { explicit: false });
     }
     ysdk.features.LoadingAPI?.ready();
+    syncWithCloudPlayer();
   } catch (error) {
     console.error("Yandex SDK initialization error:", error);
   }
