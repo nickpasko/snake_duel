@@ -27,7 +27,7 @@ const STRINGS = {
   en: {
     pageTitle: "Snake Duel Arena",
     heroTitle: "Snake Duel Arena",
-    heroText: "You do not steer the snakes directly. Instead, you author their instincts: each snake scans a 5×5 view around its head, matches the first visual rule, and turns left, right, or continues straight.",
+    heroText: "You do not steer the snakes directly. Instead, you author their instincts: each snake scans a 7×7 view around its head, matches the first visual rule, and turns left, right, or continues straight.",
     languageLabel: "Language",
     start: "Start",
     pause: "Pause",
@@ -160,7 +160,7 @@ const STRINGS = {
   ru: {
     pageTitle: "Арена дуэли змей",
     heroTitle: "Арена дуэли змей",
-    heroText: "Вы не управляете змеями напрямую. Вместо этого вы задаёте их инстинкты: каждая змея сканирует область 5×5 вокруг своей головы, находит первое совпавшее правило и поворачивает налево, направо или продолжает двигаться прямо.",
+    heroText: "Вы не управляете змеями напрямую. Вместо этого вы задаёте их инстинкты: каждая змея сканирует область 7×7 вокруг своей головы, находит первое совпавшее правило и поворачивает налево, направо или продолжает двигаться прямо.",
     languageLabel: "Язык",
     start: "Старт",
     pause: "Пауза",
