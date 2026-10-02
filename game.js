@@ -2285,6 +2285,10 @@ function unlockAudioOnFirstInteraction() {
 document.addEventListener("pointerdown", unlockAudioOnFirstInteraction, { once: true });
 document.addEventListener("keydown", unlockAudioOnFirstInteraction, { once: true });
 
+// The whole page is the game (no external content), so suppress the native context menu
+// everywhere rather than scoping it to individual elements.
+document.addEventListener("contextmenu", (event) => event.preventDefault());
+
 function wireControls() {
   refs.startScreenButton.addEventListener("click", () => {
     playMenuClickSound();

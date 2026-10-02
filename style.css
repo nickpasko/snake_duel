@@ -29,6 +29,16 @@ body {
   font-family: Arial, sans-serif;
   background: linear-gradient(180deg, #0b0f17, var(--bg));
   color: var(--text);
+  /* Suppress iOS's long-press text-selection/callout bubble over the game area; contextmenu
+     preventDefault() in game.js doesn't reliably catch it on its own. */
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 button,
