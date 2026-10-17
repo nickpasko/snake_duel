@@ -2,24 +2,52 @@
   "configVersion": 1,
   "id": "snake-duel",
   "version": "1.1.0",
-  "title": { "en": "Snake Duel Arena", "ru": "Арена дуэли змей" },
+  "title": {
+    "en": "Snake Duel Arena",
+    "ru": "Арена дуэли змей"
+  },
   "entry": "index.html",
-  "files": ["index.html", "style.css", "missions.js", "game.js"],
-  "sdk": "1.0.0",
-  "locales": ["ru", "en"],
+  "files": [
+    "index.html",
+    "style.css",
+    "missions.js",
+    "game.js"
+  ],
+  "sdk": "1.0.1",
+  "locales": [
+    "ru",
+    "en"
+  ],
   "orientation": "landscape",
-  "input": ["mouse", "touch"],
+  "input": [
+    "mouse",
+    "touch"
+  ],
   "monetization": "ads",
   "placements": {
-    "after_result": { "type": "interstitial", "minIntervalSec": 120 }
+    "after_result": {
+      "type": "interstitial",
+      "minIntervalSec": 120
+    }
   },
-  "progress": ["mission"],
+  "progress": [
+    "mission"
+  ],
   "storage": {
-    "keys": ["missionProgress", "lang"],
+    "keys": [
+      "missionProgress",
+      "lang"
+    ],
     "maxBytes": 4096,
     "legacy": {
-      "missionProgress": { "local": "snakeDuelMissionProgress", "cloud": "missionProgress" },
-      "lang": { "local": "snakeDuelLang", "cloud": "lang" }
+      "missionProgress": {
+        "local": "snakeDuelMissionProgress",
+        "cloud": "missionProgress"
+      },
+      "lang": {
+        "local": "snakeDuelLang",
+        "cloud": "lang"
+      }
     }
   },
   "assets": {
@@ -27,8 +55,17 @@
     "cover": "store-assets/cover-800x470.png"
   },
   "releases": [
-    { "platform": "crazygames", "region": "intl" },
-    { "platform": "itch", "region": "intl" },
-    { "platform": "yandex", "region": "ru" }
+    {
+      "platform": "crazygames",
+      "region": "intl"
+    },
+    {
+      "platform": "itch",
+      "region": "intl"
+    },
+    {
+      "platform": "yandex",
+      "region": "ru"
+    }
   ]
 }
