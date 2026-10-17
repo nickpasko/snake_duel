@@ -18,7 +18,9 @@ const SNAKE_KEYS = ["snakeA", "snakeB"];
 const LAST_RULE_NONE = "__none__";
 const LAST_RULE_DEAD = "__dead__";
 const LAST_RULE_DEFAULT = "__default__";
-const LANG_STORAGE_KEY = "snakeDuelLang";
+// Must match "id"/"version" in studio.game.json (a release build overrides them with its config).
+const GAME_ID = "snake-duel";
+const GAME_VERSION = "1.1.0";
 
 const SCREENS = ["menu", "missionSelect", "missionPlay", "duel"];
 let currentScreen = "menu";
@@ -292,17 +294,9 @@ const STRINGS = {
   }
 };
 
+// Resolved in boot(): the player's explicit choice (Studio.storage "lang") wins, otherwise
+// Studio.locale() (platform → browser → region default, limited to the game's locales).
 let currentLang = "ru";
-let languageExplicitlyChosen = false;
-try {
-  const storedLang = localStorage.getItem(LANG_STORAGE_KEY);
-  if (storedLang === "en" || storedLang === "ru") {
-    currentLang = storedLang;
-    languageExplicitlyChosen = true;
-  }
-} catch (error) {
-  // localStorage unavailable (e.g. sandboxed iframe); fall back to default language.
-}
 
 function tr(path, params) {
   const segments = path.split(".");
@@ -341,13 +335,10 @@ function setLanguage(lang, { explicit = true } = {}) {
   currentLang = lang === "en" ? "en" : "ru";
   refs.languageSelect.value = currentLang;
   if (explicit) {
-    languageExplicitlyChosen = true;
-    try {
-      localStorage.setItem(LANG_STORAGE_KEY, currentLang);
-    } catch (error) {
-      // localStorage unavailable; language choice just won't persist across reloads.
-    }
-    persistCloudData({ lang: currentLang, languageExplicit: true });
+    // Only an explicit choice is saved, so platform/browser auto-detection keeps working otherwise.
+    Studio.storage.save("lang", currentLang).catch(() => {
+      // best effort: the choice just won't persist
+    });
   }
   applyStaticTranslations();
   if (currentScreen === "missionSelect") {
@@ -389,6 +380,7 @@ const state = {
 
 const refs = {
   hero: document.getElementById("hero"),
+  buildLabel: document.getElementById("buildLabel"),
   languageSelect: document.getElementById("languageSelect"),
   menuMultiplayerButton: document.getElementById("menuMultiplayerButton"),
   menuSinglePlayerButton: document.getElementById("menuSinglePlayerButton"),
@@ -566,6 +558,7 @@ function createRandomInitialSnakes() {
 
 function resetBattleState(logReset = true) {
   stopTimer();
+  endRun();
   state.status = "paused";
   state.remainingMs = BATTLE_DURATION_MS;
   state.result = { key: "inProgress" };
@@ -771,6 +764,7 @@ function startBattle() {
   }
   state.status = "running";
   state.runEndsAt = Date.now() + state.remainingMs;
+  beginRunSegment();
   renderStatus();
   pushLog("started");
   scheduleNextTick();
@@ -798,6 +792,7 @@ function pauseBattle(log = true) {
   if (state.status !== "finished") {
     state.status = "paused";
   }
+  Studio.gameplay.stop();
   renderStatus();
   if (log) {
     pushLog("pausedLog");
@@ -835,6 +830,60 @@ function finalizeBattle(reasonKey) {
 
   renderStatus();
   pushLog(reasonKey || "battleFinishedGeneric", { resultText: formatResult(state.result) });
+  if (state.mode === "duel") {
+    const winner = state.result.params ? state.result.params.snakeKey : null;
+    finishRun(winner === "snakeA" ? "snake_a" : winner === "snakeB" ? "snake_b" : "draw");
+  }
+}
+
+// ===== Run lifecycle: Studio.gameplay, analytics, ad breaks =====
+
+// A "run" is one duel or one mission attempt, from its first Start to its result. Studio.gameplay
+// is active only while the simulation actually runs, so the user's own Pause (to edit rules) is a
+// gameplay stop too; resuming continues the same run.
+const run = { started: false, startedAt: 0, finished: false };
+// Set when a result has been shown; the next transition (retry / next / back / reset) is a
+// natural pause for an interstitial.
+let adBreakPending = false;
+
+function beginRunSegment() {
+  Studio.gameplay.start({ mode: state.mode, resume: run.started });
+  if (!run.started) {
+    run.started = true;
+    run.startedAt = Date.now();
+  }
+}
+
+function endRun() {
+  Studio.gameplay.stop();
+  run.started = false;
+  run.finished = false;
+}
+
+function finishRun(result, extra = {}) {
+  Studio.gameplay.stop();
+  if (!run.started || run.finished) {
+    return;
+  }
+  run.finished = true;
+  Studio.track("game_finished", {
+    mode: state.mode,
+    result,
+    duration_s: Math.round((Date.now() - run.startedAt) / 1000),
+    score: state.snakes.snakeA.body.length,
+    ...extra
+  });
+  adBreakPending = true;
+}
+
+// Interstitial at a natural pause after a result. Never during a running simulation: by now the
+// run is finished and Studio.gameplay is stopped; the studio also enforces frequency limits.
+async function takeAdBreak() {
+  if (!adBreakPending) {
+    return;
+  }
+  adBreakPending = false;
+  await Studio.ads.interstitial("after_result");
 }
 
 function turnDirection(direction, action) {
@@ -1440,27 +1489,69 @@ function bindEditorEvents(editor) {
 
 // ===== Single Player: mission progress persistence =====
 
-function loadMissionProgress() {
-  const fallback = { version: 1, completed: {} };
+// In-memory copy; restored from Studio.storage in boot() (local + platform cloud, newest wins).
+let missionProgress = { version: 1, completed: {} };
+
+function parseMissionProgress(raw) {
   try {
-    const raw = localStorage.getItem(MISSION_STORAGE_KEY);
-    if (!raw) {
-      return fallback;
-    }
-    const parsed = JSON.parse(raw);
-    return parsed && parsed.version === 1 && parsed.completed ? parsed : fallback;
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : null;
+    return parsed && parsed.version === 1 && parsed.completed ? parsed : null;
   } catch (error) {
-    return fallback;
+    return null;
   }
 }
 
-function saveMissionProgress(progress) {
-  try {
-    localStorage.setItem(MISSION_STORAGE_KEY, JSON.stringify(progress));
-  } catch (error) {
-    // localStorage unavailable; progress just won't persist across reloads.
+function mergeMissionProgress(...copies) {
+  const completed = {};
+  for (const copy of copies) {
+    if (copy) Object.assign(completed, copy.completed);
   }
-  persistCloudData({ missionProgress: progress });
+  return { version: 1, completed };
+}
+
+function loadMissionProgress() {
+  return { version: 1, completed: { ...missionProgress.completed } };
+}
+
+function saveMissionProgress(progress) {
+  missionProgress = progress;
+  Studio.storage.save("missionProgress", JSON.stringify(progress)).catch(() => {
+    // best effort: progress stays in memory for this session
+  });
+}
+
+// Restores progress saved by this or any earlier build. Before the studio SDK the game wrote the
+// same object to localStorage (MISSION_STORAGE_KEY) and to the Yandex player cloud. studio.game.json
+// maps both via storage.legacy, but the SDK returns only one of them, preferring the local one. To
+// keep the old "union of completed missions" across devices, the legacy local copy is hidden for
+// the duration of the load (so the cloud copy is read) and merged here, then written back once.
+async function restoreMissionProgress() {
+  let legacyLocalRaw = null;
+  try {
+    legacyLocalRaw = localStorage.getItem(MISSION_STORAGE_KEY);
+    if (legacyLocalRaw !== null) localStorage.removeItem(MISSION_STORAGE_KEY);
+  } catch (error) {
+    // storage blocked
+  }
+  let storedRaw = null;
+  try {
+    storedRaw = await Studio.storage.load("missionProgress");
+  } finally {
+    try {
+      // Left in place for older builds (Yandex keeps serving them until the new one is approved).
+      if (legacyLocalRaw !== null) localStorage.setItem(MISSION_STORAGE_KEY, legacyLocalRaw);
+    } catch (error) {
+      // storage blocked
+    }
+  }
+  const stored = parseMissionProgress(storedRaw);
+  // Also merge whatever was completed while loading (normally nothing: ready() comes after).
+  const merged = mergeMissionProgress(stored, parseMissionProgress(legacyLocalRaw), missionProgress);
+  missionProgress = merged;
+  const storedCount = stored ? Object.keys(stored.completed).length : 0;
+  if (Object.keys(merged.completed).length !== storedCount) {
+    saveMissionProgress(merged);
+  }
 }
 
 function isMissionUnlocked(missionId, progress) {
@@ -1567,7 +1658,12 @@ function finalizeMission(reasonKey) {
 
   const missionName = tr(`missions.${state.mission.id}.name`);
   pushLog(won ? "missionCompleted" : "missionFailed", { missionName });
+  const missionNumber = MISSIONS.findIndex((m) => m.id === state.mission.id) + 1;
+  finishRun(won ? "won" : "lost", { mission: missionNumber });
   if (won) {
+    if (!missionProgress.completed[state.mission.id]) {
+      Studio.progress("mission", missionNumber);
+    }
     markMissionComplete(state.mission.id);
     playWinSound();
   } else {
@@ -1576,7 +1672,10 @@ function finalizeMission(reasonKey) {
   showMissionBanner(won);
 }
 
-function handleResetClick() {
+async function handleResetClick() {
+  if (state.status === "finished") {
+    await takeAdBreak();
+  }
   if (state.mode === "mission" && state.mission) {
     startMission(state.mission.id);
   } else {
@@ -1587,6 +1686,8 @@ function handleResetClick() {
 // ===== Sound effects (synthesized via Web Audio API — no audio assets needed) =====
 
 let audioContext = null;
+// True while Studio reports a pause (ad, hidden tab, platform pause): audio stays suspended.
+let platformPaused = false;
 
 function getAudioContext() {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
@@ -1596,7 +1697,7 @@ function getAudioContext() {
   if (!audioContext) {
     audioContext = new AudioContextClass();
   }
-  if (audioContext.state === "suspended") {
+  if (audioContext.state === "suspended" && !platformPaused) {
     audioContext.resume();
   }
   return audioContext;
@@ -2263,15 +2364,27 @@ function updateBackgroundMusic() {
   playMusicTrack(track);
 }
 
-// Yandex Games requires audio to stop when the game is backgrounded/minimized.
-document.addEventListener("visibilitychange", () => {
-  if (!audioContext) {
-    return;
+// Platforms require the game to freeze and go silent during ads, in a hidden tab and on a
+// platform pause; Studio reports all of these through one pair of callbacks.
+let resumeBattleAfterPause = false;
+Studio.onPause(() => {
+  platformPaused = true;
+  if (state.status === "running") {
+    pauseBattle(false);
+    resumeBattleAfterPause = true;
   }
-  if (document.hidden) {
+  if (audioContext) {
     audioContext.suspend();
-  } else {
+  }
+});
+Studio.onResume(() => {
+  platformPaused = false;
+  if (audioContext) {
     audioContext.resume();
+  }
+  if (resumeBattleAfterPause) {
+    resumeBattleAfterPause = false;
+    startBattle();
   }
 });
 
@@ -2323,17 +2436,24 @@ function wireControls() {
     startMission(card.dataset.missionId);
   });
 
-  refs.missionPlayBackButton.addEventListener("click", () => {
+  refs.missionPlayBackButton.addEventListener("click", async () => {
     playMenuClickSound();
+    if (state.status === "running") {
+      pauseBattle(false);
+    }
+    await takeAdBreak();
+    renderMissionSelect();
     showScreen("missionSelect");
   });
 
-  refs.missionRetryButton.addEventListener("click", () => {
+  refs.missionRetryButton.addEventListener("click", async () => {
     playMenuClickSound();
+    await takeAdBreak();
     startMission(state.mission.id);
   });
-  refs.missionNextButton.addEventListener("click", () => {
+  refs.missionNextButton.addEventListener("click", async () => {
     playMenuClickSound();
+    await takeAdBreak();
     const currentIndex = MISSIONS.findIndex((m) => m.id === state.mission.id);
     const next = MISSIONS[currentIndex + 1];
     if (next) {
@@ -2343,8 +2463,9 @@ function wireControls() {
       showScreen("missionSelect");
     }
   });
-  refs.missionBannerBackButton.addEventListener("click", () => {
+  refs.missionBannerBackButton.addEventListener("click", async () => {
     playMenuClickSound();
+    await takeAdBreak();
     showScreen("menu");
   });
 
@@ -2387,84 +2508,31 @@ wireControls();
 resetBattleState(true);
 showScreen("menu");
 
-let ysdk;
-let ysdkPlayer = null;
+async function boot() {
+  await Studio.init({ gameId: GAME_ID, version: GAME_VERSION });
 
-// Mirrors language/mission-progress saves into the Yandex player's cloud data, in addition to
-// the localStorage writes at each call site, so progress follows the player across devices
-// (platform requirement: progress/settings must persist via ysdk.getPlayer()). No-op until
-// syncWithCloudPlayer() has resolved a player. Read-modify-write rather than assuming setData()
-// merges, so a language-only update never clobbers previously-saved mission progress or vice
-// versa. flush=true saves promptly instead of waiting on the SDK's default batching.
-function persistCloudData(partialUpdate) {
-  if (!ysdkPlayer) {
-    return;
+  // Language: the player's explicit choice in the selector wins; otherwise Studio.locale().
+  // Legacy saves (localStorage "snakeDuelLang", Yandex cloud "lang") are mapped in studio.game.json.
+  const savedLang = await Studio.storage.load("lang");
+  const lang = savedLang === "en" || savedLang === "ru" ? savedLang : Studio.locale();
+  if (lang !== currentLang) {
+    // Before ready() nothing has been edited yet: rebuild the demo rules so their names use the
+    // resolved language too.
+    setLanguage(lang, { explicit: false });
+    resetRulesToDefaults();
+    renderEditors();
+    editors.duelA.scriptNameInput.value = tr("snakeLabel.snakeA");
+    editors.duelB.scriptNameInput.value = tr("snakeLabel.snakeB");
+    editors.missionA.scriptNameInput.value = tr("missionPlay.yourSnakeLabel");
   }
-  ysdkPlayer
-    .getData(["lang", "languageExplicit", "missionProgress"])
-    .then((existing) => ysdkPlayer.setData({ ...existing, ...partialUpdate }, true))
-    .catch(() => {
-      // best-effort; localStorage already has the update regardless
-    });
+
+  await restoreMissionProgress();
+  if (currentScreen === "missionSelect") {
+    renderMissionSelect();
+  }
+
+  refs.buildLabel.textContent = Studio.buildLabel();
+  Studio.ready();
 }
 
-// Fire-and-forget: resolves the player and reconciles cloud data against what's already in
-// localStorage/memory. Called after LoadingAPI.ready() so a slow network never delays the ready
-// signal — only the existing environment.i18n.lang auto-detect (above) gates that.
-async function syncWithCloudPlayer() {
-  try {
-    ysdkPlayer = await ysdk.getPlayer({ scopes: false });
-  } catch (error) {
-    return; // anonymous/offline/unsupported environment — stay in localStorage-only mode
-  }
-
-  let cloud;
-  try {
-    cloud = await ysdkPlayer.getData(["lang", "languageExplicit", "missionProgress"]);
-  } catch (error) {
-    return;
-  }
-
-  // Language precedence: cloud explicit choice > local explicit choice > SDK auto-detect
-  // (already applied above) > default.
-  if (cloud.languageExplicit && (cloud.lang === "en" || cloud.lang === "ru")) {
-    if (cloud.lang !== currentLang) {
-      setLanguage(cloud.lang, { explicit: true });
-    }
-  } else if (languageExplicitlyChosen) {
-    persistCloudData({ lang: currentLang, languageExplicit: true }); // push local choice up
-  }
-
-  // Mission progress: union of completed missions from both sides, so neither copy regresses.
-  if (cloud.missionProgress && cloud.missionProgress.completed) {
-    const local = loadMissionProgress();
-    const merged = { version: 1, completed: { ...local.completed, ...cloud.missionProgress.completed } };
-    if (JSON.stringify(merged.completed) !== JSON.stringify(local.completed)) {
-      saveMissionProgress(merged);
-      if (currentScreen === "missionSelect") {
-        renderMissionSelect();
-      }
-    }
-  }
-}
-
-async function initYandexSDK() {
-  try {
-    ysdk = await YaGames.init();
-    console.log("Yandex Games SDK initialized");
-    // Auto language detection (required for all games, even RU/EN-only ones): apply the
-    // platform-reported language unless the player already picked one explicitly via the
-    // selector. Unsupported codes fall back to Russian inside setLanguage() itself. Must
-    // resolve before LoadingAPI.ready() so detection completes at startup, not mid-session.
-    const detectedLang = ysdk.environment?.i18n?.lang;
-    if (detectedLang && !languageExplicitlyChosen) {
-      setLanguage(detectedLang, { explicit: false });
-    }
-    ysdk.features.LoadingAPI?.ready();
-    syncWithCloudPlayer();
-  } catch (error) {
-    console.error("Yandex SDK initialization error:", error);
-  }
-}
-
-initYandexSDK();
+boot();

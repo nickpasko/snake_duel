@@ -596,3 +596,11 @@ textarea {
     grid-template-columns: 1fr;
   }
 }
+
+.build-label {
+  margin: 0;
+  justify-self: end;
+  font-size: 0.7rem;
+  color: var(--muted);
+  opacity: 0.6;
+}

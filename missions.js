@@ -1,7 +1,7 @@
 // Mission and opponent-script data for Single Player mode.
 // Loaded before game.js — pure data, no DOM/state access here.
 
-const MISSION_STORAGE_KEY = "snakeDuelMissionProgress"; // distinct from game.js's LANG_STORAGE_KEY
+const MISSION_STORAGE_KEY = "snakeDuelMissionProgress"; // pre-studio localStorage key, read only for migration (game.js restoreMissionProgress)
 
 // Coordinates below use the same [row, col] scheme as the in-game rule editor's
 // 7x7 pattern grid (VIEW_SIZE=7, center=[3,3]=own head, row decreases = ahead,

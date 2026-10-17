@@ -4,7 +4,6 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Snake Duel Arena</title>
-  <script src="https://yandex.ru/games/sdk/v2"></script>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -41,6 +40,7 @@
           <p data-i18n="menu.singlePlayerDescription">Climb a ladder of 8 missions.</p>
         </button>
       </div>
+      <p id="buildLabel" class="build-label"></p>
     </div>
 
     <div id="screen-missionSelect" class="screen">
@@ -205,6 +205,7 @@
     </div>
   </div>
 
+  <script src="studio-sdk.js"></script>
   <script src="missions.js"></script>
   <script src="game.js"></script>
 </body>
