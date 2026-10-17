@@ -57,6 +57,19 @@ const STRINGS = {
     unnamedRule: "Unnamed rule",
     ruleWord: "rule",
     deleteRule: "Delete",
+    rulesIntro: "Rules are checked top to bottom; the first one that matches decides. Click a rule to edit it.",
+    expandRule: "Edit the rule",
+    collapseRule: "Collapse the rule",
+    moveRuleUp: "Move the rule up",
+    moveRuleDown: "Move the rule down",
+    ruleMenu: "More actions",
+    duplicateRule: "Duplicate",
+    mirrorRule: "Mirror (left ↔ right)",
+    copyName: ({ name }) => `${name} (copy)`,
+    mirrorName: ({ name }) => `${name} (mirrored)`,
+    brushLabel: "Brush",
+    brushHint: "Pick a brush and click or drag over cells. Clicking a cell of the same type, or the right button, clears it. ▲ is your head, facing forward; the dim rows are behind.",
+    brush: { any: "Clear (any)", empty: "Empty", self: "Own body", enemy: "Enemy", enemyHead: "Enemy head", food: "Food", wall: "Wall" },
     ruleNameAria: ({ label }) => `${label} rule name`,
     actionAria: ({ label }) => `${label} rule action`,
     snakeLabel: { snakeA: "Snake A", snakeB: "Snake B" },
@@ -190,6 +203,19 @@ const STRINGS = {
     unnamedRule: "Безымянное правило",
     ruleWord: "правило",
     deleteRule: "Удалить",
+    rulesIntro: "Правила проверяются сверху вниз; срабатывает первое совпавшее. Нажмите на правило, чтобы изменить его.",
+    expandRule: "Изменить правило",
+    collapseRule: "Свернуть правило",
+    moveRuleUp: "Поднять правило",
+    moveRuleDown: "Опустить правило",
+    ruleMenu: "Ещё",
+    duplicateRule: "Дублировать",
+    mirrorRule: "Отразить (лево ↔ право)",
+    copyName: ({ name }) => `${name} (копия)`,
+    mirrorName: ({ name }) => `${name} (зеркально)`,
+    brushLabel: "Кисть",
+    brushHint: "Выберите кисть и кликайте или ведите по клеткам. Клик по клетке того же типа или правая кнопка стирают её. ▲ — ваша голова, смотрит вперёд; тусклые ряды — позади.",
+    brush: { any: "Стереть (любое)", empty: "Пусто", self: "Своё тело", enemy: "Враг", enemyHead: "Голова врага", food: "Еда", wall: "Стена" },
     ruleNameAria: ({ label }) => `Название правила для ${label}`,
     actionAria: ({ label }) => `Действие правила для ${label}`,
     snakeLabel: { snakeA: "Змея A", snakeB: "Змея B" },
@@ -659,63 +685,117 @@ function renderStatus() {
   view.resultValue.textContent = formatResult(state.result);
 }
 
+// UI-only editor state (never saved into scripts): which rule is open, the open ⋮ menu, the brush.
+const editorUi = {
+  expanded: { snakeA: null, snakeB: null },
+  menu: { snakeA: null, snakeB: null },
+  brush: { snakeA: "food", snakeB: "food" }
+};
+
+const ACTION_ARROWS = { left: "←", straight: "↑", right: "→" };
+
 function renderRuleList(editor) {
   const { snakeKey, rulesContainer } = editor;
   const rules = state.rules[snakeKey];
   rulesContainer.style.setProperty("--view-size", VIEW_SIZE);
-  rulesContainer.innerHTML = rules.length
-    ? rules
-        .map((rule, index) => {
-          const activeClass = state.lastRuleIndex[snakeKey] === index ? " active" : "";
-          const ruleLabel = snakeLabel(snakeKey);
-          return `
-            <article class="rule-card${activeClass}" data-snake="${snakeKey}" data-rule-id="${rule.id}">
-              <div class="rule-header">
-                <input type="text" value="${escapeAttribute(rule.name)}" data-field="name" aria-label="${escapeAttribute(tr("ruleNameAria", { label: ruleLabel }))}" />
-                <button data-move="up" ${index === 0 ? "disabled" : ""}>↑</button>
-                <button data-move="down" ${index === rules.length - 1 ? "disabled" : ""}>↓</button>
-                <button data-delete-rule="true">${tr("deleteRule")}</button>
-              </div>
-              <div class="rule-meta">
-                <label>
-                  <span class="helper">${tr("actionLabelText")}</span>
-                  <select data-field="action" aria-label="${escapeAttribute(tr("actionAria", { label: ruleLabel }))}">
-                    ${["left", "straight", "right"]
-                      .map(
-                        (action) =>
-                          `<option value="${action}" ${rule.action === action ? "selected" : ""}>${actionText(action)}</option>`
-                      )
-                      .join("")}
-                  </select>
-                </label>
-                <div class="helper">${tr("firstMatchWins")}</div>
-              </div>
-              <div class="pattern-grid">
-                ${renderPatternButtons(rule.pattern)}
-              </div>
-            </article>
-          `;
-        })
-        .join("")
-    : `<p class="helper">${tr("noRulesYet")}</p>`;
+  if (!rules.length) {
+    rulesContainer.innerHTML = `<p class="helper">${tr("noRulesYet")}</p>`;
+    return;
+  }
+  rulesContainer.innerHTML = `
+    <p class="helper rules-intro">${tr("rulesIntro")}</p>
+    ${rules.map((rule, index) => renderRuleCard(snakeKey, rule, index, rules.length)).join("")}
+  `;
 }
 
+function renderRuleCard(snakeKey, rule, index, count) {
+  const active = state.lastRuleIndex[snakeKey] === index ? " active" : "";
+  const expanded = editorUi.expanded[snakeKey] === rule.id;
+  const menuOpen = editorUi.menu[snakeKey] === rule.id;
+  const ruleLabel = snakeLabel(snakeKey);
+  return `
+    <article class="rule-card${active}${expanded ? " expanded" : ""}" data-snake="${snakeKey}" data-rule-id="${rule.id}">
+      <div class="rule-row">
+        <button type="button" class="rule-toggle" data-toggle-rule="true" aria-expanded="${expanded}"
+          title="${escapeAttribute(tr(expanded ? "collapseRule" : "expandRule"))}">
+          <span class="rule-index">${index + 1}</span>
+          <span class="rule-thumb" aria-hidden="true">${renderThumb(rule.pattern)}</span>
+          <span class="rule-action-icon" title="${escapeAttribute(actionText(rule.action))}">${ACTION_ARROWS[rule.action]}</span>
+          <span class="rule-name">${escapeHtml(rule.name)}</span>
+        </button>
+        <button type="button" class="icon-button" data-move="up" ${index === 0 ? "disabled" : ""} aria-label="${escapeAttribute(tr("moveRuleUp"))}">↑</button>
+        <button type="button" class="icon-button" data-move="down" ${index === count - 1 ? "disabled" : ""} aria-label="${escapeAttribute(tr("moveRuleDown"))}">↓</button>
+        <button type="button" class="icon-button" data-rule-menu="true" aria-expanded="${menuOpen}" aria-label="${escapeAttribute(tr("ruleMenu"))}">⋮</button>
+        ${
+          menuOpen
+            ? `<div class="rule-menu" role="menu">
+                <button type="button" role="menuitem" data-duplicate-rule="true">${tr("duplicateRule")}</button>
+                <button type="button" role="menuitem" data-mirror-rule="true">${tr("mirrorRule")}</button>
+                <button type="button" role="menuitem" class="danger" data-delete-rule="true">${tr("deleteRule")}</button>
+              </div>`
+            : ""
+        }
+      </div>
+      ${expanded ? renderRuleEditor(snakeKey, rule, ruleLabel) : ""}
+    </article>
+  `;
+}
+
+function renderRuleEditor(snakeKey, rule, ruleLabel) {
+  const brush = editorUi.brush[snakeKey];
+  return `
+    <div class="rule-editor">
+      <input type="text" value="${escapeAttribute(rule.name)}" data-field="name" aria-label="${escapeAttribute(tr("ruleNameAria", { label: ruleLabel }))}" />
+      <div class="action-buttons" role="group" aria-label="${escapeAttribute(tr("actionAria", { label: ruleLabel }))}">
+        ${["left", "straight", "right"]
+          .map(
+            (action) =>
+              `<button type="button" data-set-action="${action}" aria-pressed="${rule.action === action}">${ACTION_ARROWS[action]} ${actionText(action)}</button>`
+          )
+          .join("")}
+      </div>
+      <div class="brush-palette" role="group" aria-label="${escapeAttribute(tr("brushLabel"))}">
+        ${CELL_TYPES.map(
+          (type) =>
+            `<button type="button" class="brush ${cellClassName(type)}" data-brush="${type}" aria-pressed="${brush === type}">${tr(`brush.${type}`)}</button>`
+        ).join("")}
+      </div>
+      <div class="pattern-wrap">
+        <div class="pattern-grid">${renderPatternButtons(rule.pattern)}</div>
+        <p class="helper brush-hint">${tr("brushHint")}</p>
+      </div>
+    </div>
+  `;
+}
+
+function cellClassName(cell) {
+  return cell.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
+}
+
+function renderThumb(pattern) {
+  return pattern
+    .map((row) => row.map((cell) => `<i class="${cellClassName(cell)}"></i>`).join(""))
+    .join("");
+}
+
+// "Any" cells are blank: only the cells a rule actually checks stand out. Rows below the head are
+// behind the snake (dimmed); the head points forward (up).
 function renderPatternButtons(pattern) {
   return pattern
     .map((row, rowIndex) =>
       row
         .map((cell, colIndex) => {
-          const disabled = rowIndex === VIEW_CENTER && colIndex === VIEW_CENTER;
-          const cellClass = cell.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`);
+          const isHead = rowIndex === VIEW_CENTER && colIndex === VIEW_CENTER;
+          const behind = rowIndex > VIEW_CENTER ? " behind" : "";
           return `
             <button
               type="button"
-              class="pattern-cell ${cellClass}"
+              class="pattern-cell ${cellClassName(cell)}${behind}"
               data-pattern-row="${rowIndex}"
               data-pattern-col="${colIndex}"
-              title="${escapeAttribute(tr(`legend.${cell}`))}"
-              ${disabled ? "disabled" : ""}
-            >${tr(`pattern.${cell}`)}</button>
+              title="${escapeAttribute(isHead ? tr("legend.head") : tr(`legend.${cell}`))}"
+              ${isHead ? "disabled" : ""}
+            >${isHead ? "▲" : cell === "any" ? "" : tr(`pattern.${cell}`)}</button>
           `;
         })
         .join("")
@@ -1367,23 +1447,96 @@ function moveRule(snakeKey, ruleId, direction) {
   renderEditors();
 }
 
-function cyclePatternCell(snakeKey, ruleId, row, col) {
+function findRule(snakeKey, ruleId) {
+  return state.rules[snakeKey].find((candidate) => candidate.id === ruleId) || null;
+}
+
+// Paints one cell and updates it (and the card's thumbnail) in place, so a drag across the grid
+// keeps the same DOM under the pointer.
+function paintPatternCell(card, snakeKey, ruleId, row, col, value) {
   if (row === VIEW_CENTER && col === VIEW_CENTER) {
     return;
   }
-  const rule = state.rules[snakeKey].find((candidate) => candidate.id === ruleId);
-  if (!rule) {
+  const rule = findRule(snakeKey, ruleId);
+  if (!rule || rule.pattern[row][col] === value) {
     return;
   }
-  const current = rule.pattern[row][col];
-  const nextIndex = (CELL_TYPES.indexOf(current) + 1) % CELL_TYPES.length;
-  rule.pattern[row][col] = CELL_TYPES[nextIndex];
+  rule.pattern[row][col] = value;
+  const cellButton = card.querySelector(`[data-pattern-row="${row}"][data-pattern-col="${col}"]`);
+  if (cellButton) {
+    cellButton.className = `pattern-cell ${cellClassName(value)}${row > VIEW_CENTER ? " behind" : ""}`;
+    cellButton.textContent = value === "any" ? "" : tr(`pattern.${value}`);
+    cellButton.title = tr(`legend.${value}`);
+  }
+  const thumb = card.querySelector(".rule-thumb");
+  if (thumb) {
+    thumb.innerHTML = renderThumb(rule.pattern);
+  }
+}
+
+function mirroredPattern(pattern) {
+  return pattern.map((row) => row.slice().reverse());
+}
+
+const MIRRORED_ACTION = { left: "right", right: "left", straight: "straight" };
+
+function insertRuleAfter(snakeKey, ruleId, rule) {
+  const rules = state.rules[snakeKey];
+  const index = rules.findIndex((candidate) => candidate.id === ruleId);
+  rules.splice(index + 1, 0, rule);
+  editorUi.expanded[snakeKey] = rule.id;
+  editorUi.menu[snakeKey] = null;
   renderEditors();
+}
+
+function duplicateRule(snakeKey, ruleId) {
+  const rule = findRule(snakeKey, ruleId);
+  if (rule) {
+    insertRuleAfter(snakeKey, ruleId, createRule(tr("copyName", { name: rule.name }), rule.action, rule.pattern.map((row) => row.slice())));
+  }
+}
+
+// Left and right words swapped in a rule's name ("food on the left" → "food on the right"); null when
+// the name names no side.
+const SIDE_WORDS = [
+  ["слева", "справа"],
+  ["налево", "направо"],
+  ["левый", "правый"],
+  ["левая", "правая"],
+  ["левее", "правее"],
+  ["left", "right"]
+];
+
+function swapSides(name) {
+  let changed = false;
+  const swapped = name.replace(/[\p{L}]+/gu, (word) => {
+    const lower = word.toLowerCase();
+    for (const [a, b] of SIDE_WORDS) {
+      const other = lower === a ? b : lower === b ? a : null;
+      if (other) {
+        changed = true;
+        return word[0] === word[0].toUpperCase() ? other[0].toUpperCase() + other.slice(1) : other;
+      }
+    }
+    return word;
+  });
+  return changed ? swapped : null;
+}
+
+function mirrorRule(snakeKey, ruleId) {
+  const rule = findRule(snakeKey, ruleId);
+  if (rule) {
+    const name = swapSides(rule.name) ?? tr("mirrorName", { name: rule.name });
+    insertRuleAfter(snakeKey, ruleId, createRule(name, MIRRORED_ACTION[rule.action], mirroredPattern(rule.pattern)));
+  }
 }
 
 function addRule(snakeKey) {
   const ruleNumber = state.rules[snakeKey].length + 1;
-  state.rules[snakeKey].push(createRule(`${snakeLabel(snakeKey)} ${tr("ruleWord")} ${ruleNumber}`, "straight"));
+  const rule = createRule(`${snakeLabel(snakeKey)} ${tr("ruleWord")} ${ruleNumber}`, "straight");
+  state.rules[snakeKey].push(rule);
+  editorUi.expanded[snakeKey] = rule.id;
+  editorUi.menu[snakeKey] = null;
   renderEditors();
 }
 
@@ -1423,9 +1576,39 @@ function bindEditorEvents(editor) {
     }
     const ruleId = card.dataset.ruleId;
 
+    const toggle = event.target.closest("[data-toggle-rule]");
+    if (toggle) {
+      playEditorClickSound();
+      editorUi.expanded[snakeKey] = editorUi.expanded[snakeKey] === ruleId ? null : ruleId;
+      editorUi.menu[snakeKey] = null;
+      renderEditors();
+      return;
+    }
+
+    const menuButton = event.target.closest("[data-rule-menu]");
+    if (menuButton) {
+      playEditorClickSound();
+      editorUi.menu[snakeKey] = editorUi.menu[snakeKey] === ruleId ? null : ruleId;
+      renderEditors();
+      return;
+    }
+
+    if (event.target.closest("[data-duplicate-rule]")) {
+      playEditorClickSound();
+      duplicateRule(snakeKey, ruleId);
+      return;
+    }
+
+    if (event.target.closest("[data-mirror-rule]")) {
+      playEditorClickSound();
+      mirrorRule(snakeKey, ruleId);
+      return;
+    }
+
     const deleteButton = event.target.closest("[data-delete-rule]");
     if (deleteButton) {
       playEditorClickSound();
+      editorUi.menu[snakeKey] = null;
       deleteRule(snakeKey, ruleId);
       return;
     }
@@ -1437,17 +1620,58 @@ function bindEditorEvents(editor) {
       return;
     }
 
-    // Pattern-cell cycling is intentionally silent — it's clicked dozens of times in quick
-    // succession while authoring a single rule's 7x7 grid, where a sound per click would grate.
-    const patternButton = event.target.closest(".pattern-cell");
-    if (patternButton) {
-      cyclePatternCell(
-        snakeKey,
-        ruleId,
-        Number(patternButton.dataset.patternRow),
-        Number(patternButton.dataset.patternCol)
-      );
+    const actionButton = event.target.closest("[data-set-action]");
+    if (actionButton) {
+      playEditorClickSound();
+      const rule = findRule(snakeKey, ruleId);
+      if (rule) {
+        rule.action = actionButton.dataset.setAction;
+        renderEditors();
+      }
+      return;
     }
+
+    const brushButton = event.target.closest("[data-brush]");
+    if (brushButton) {
+      playEditorClickSound();
+      editorUi.brush[snakeKey] = brushButton.dataset.brush;
+      renderEditors();
+    }
+  });
+
+  // Painting the pattern (silent: dozens of cells in a row would grate): press with the brush — or
+  // press a cell already of the brush's type to clear it — and drag to paint more; right button erases.
+  let painting = null;
+  root.addEventListener("pointerdown", (event) => {
+    const cell = event.target.closest(".pattern-cell");
+    const card = event.target.closest(".rule-card");
+    if (!cell || !card || cell.disabled) {
+      return;
+    }
+    event.preventDefault();
+    const row = Number(cell.dataset.patternRow);
+    const col = Number(cell.dataset.patternCol);
+    const rule = findRule(snakeKey, card.dataset.ruleId);
+    if (!rule) {
+      return;
+    }
+    const brush = editorUi.brush[snakeKey];
+    const value = event.button === 2 || rule.pattern[row][col] === brush ? "any" : brush;
+    painting = { card, ruleId: rule.id, value };
+    paintPatternCell(card, snakeKey, rule.id, row, col, value);
+  });
+  root.addEventListener("pointerover", (event) => {
+    if (!painting) {
+      return;
+    }
+    const cell = event.target.closest(".pattern-cell");
+    if (!cell || !painting.card.contains(cell) || cell.disabled) {
+      return;
+    }
+    paintPatternCell(painting.card, snakeKey, painting.ruleId, Number(cell.dataset.patternRow), Number(cell.dataset.patternCol), painting.value);
+  });
+  window.addEventListener("pointerup", () => {
+    painting = null;
   });
 
   root.addEventListener("input", (event) => {
@@ -1461,6 +1685,10 @@ function bindEditorEvents(editor) {
     }
     if (event.target.dataset.field === "name") {
       rule.name = event.target.value || tr("unnamedRule");
+      const label = card.querySelector(".rule-name");
+      if (label) {
+        label.textContent = rule.name;
+      }
     }
   });
 
@@ -2401,6 +2629,23 @@ document.addEventListener("keydown", unlockAudioOnFirstInteraction, { once: true
 // The whole page is the game (no external content), so suppress the native context menu
 // everywhere rather than scoping it to individual elements.
 document.addEventListener("contextmenu", (event) => event.preventDefault());
+
+// An open ⋮ menu closes on any click outside it.
+document.addEventListener("click", (event) => {
+  if (event.target.closest("[data-rule-menu], .rule-menu")) {
+    return;
+  }
+  let changed = false;
+  for (const key of Object.keys(editorUi.menu)) {
+    if (editorUi.menu[key]) {
+      editorUi.menu[key] = null;
+      changed = true;
+    }
+  }
+  if (changed) {
+    renderEditors();
+  }
+});
 
 function wireControls() {
   refs.languageSelect.addEventListener("change", (event) => {
